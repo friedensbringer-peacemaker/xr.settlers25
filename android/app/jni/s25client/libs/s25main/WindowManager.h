@@ -1,0 +1,189 @@
+// Copyright (C) 2005 - 2021 Settlers Freaks (sf-team at siedler25.org)
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#pragma once
+
+#include "Rect.h"
+#include "SnapOffset.h"
+#include "driver/VideoDriverLoaderInterface.h"
+#include "s25util/Singleton.h"
+#include <list>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+class Window;
+class Desktop;
+class IngameWindow;
+struct MouseCoords;
+struct KeyEvent;
+class ctrlBaseTooltip;
+
+// Cursor types with values equal to indices in resource.idx
+enum class Cursor : unsigned
+{
+    None,
+    Hand = 30,
+    Scroll = 32,
+    Moon = 33,
+    Remove = 34
+};
+
+/// Verwaltet alle (offenen) Fenster bzw Desktops samt ihren Controls und Messages
+class WindowManager : public Singleton<WindowManager>, public VideoDriverLoaderInterface
+{
+public:
+    using KeyboardMsgHandler = bool (Window::*)(const KeyEvent&);
+    using MouseMsgHandler = bool (Window::*)(const MouseCoords&);
+
+    WindowManager();
+    ~WindowManager();
+    void CleanUp();
+
+    /// Zeichnet Desktop und alle Fenster.
+    void Draw();
+    /// liefert ob der aktuelle Desktop den Focus besitzt oder nicht.
+    bool IsDesktopActive() const;
+
+    /// schickt eine Nachricht an das aktive Fenster bzw den aktiven Desktop.
+    /// Sendet eine Tastaturnachricht an die Steuerelemente.
+    void RelayKeyboardMessage(KeyboardMsgHandler msg, const KeyEvent& ke);
+    /// Sendet eine Mausnachricht weiter an alle Steuerelemente
+    void RelayMouseMessage(MouseMsgHandler msg, const MouseCoords& mc, Window* window = nullptr);
+
+    /// Öffnet ein IngameWindow und fügt es zur Fensterliste hinzu.
+    IngameWindow& DoShow(std::unique_ptr<IngameWindow> window, bool mouse = false);
+    template<typename T>
+    T& Show(std::unique_ptr<T> window, bool mouse = false)
+    {
+        return static_cast<T&>(DoShow(std::move(window), mouse));
+    }
+    template<typename T>
+    T& ReplaceWindow(std::unique_ptr<T> window)
+    {
+        auto* oldWnd = FindNonModalWindow(window->GetID());
+        if(oldWnd)
+            oldWnd->Close();
+        return Show(std::move(window));
+    }
+    template<typename T>
+    T* ToggleWindow(std::unique_ptr<T> window)
+    {
+        auto* oldWnd = FindNonModalWindow(window->GetID());
+        if(oldWnd)
+        {
+            oldWnd->Close();
+            return nullptr;
+        } else
+            return &Show(std::move(window));
+    }
+    /// Registers a window to be shown after a desktop switch
+    IngameWindow* ShowAfterSwitch(std::unique_ptr<IngameWindow> window);
+    /// Sucht ein Fenster mit der entsprechenden Fenster-ID und schließt es (falls es so eins gibt)
+    void Close(unsigned id);
+    /// Close the window right away and free it.
+    void CloseNow(IngameWindow* window);
+    /// merkt einen Desktop zum Wechsel vor.
+    Desktop* Switch(std::unique_ptr<Desktop> desktop);
+    /// Process press of left mouse button
+    void Msg_LeftDown(MouseCoords mc) override;
+    /// Process release of left mouse button
+    void Msg_LeftUp(MouseCoords mc) override;
+    /// Process press of right mouse button
+    void Msg_RightDown(const MouseCoords& mc) override;
+    /// Process release of right mouse button
+    void Msg_RightUp(const MouseCoords& mc) override;
+    /// Process press of middle mouse button
+    void Msg_MiddleDown(const MouseCoords& mc) override;
+    /// Process release of middle mouse button
+    void Msg_MiddleUp(const MouseCoords& mc) override;
+    /// Verarbeitung des Drückens des Rad hoch.
+    void Msg_WheelUp(const MouseCoords& mc) override;
+    /// Verarbeitung Rad runter.
+    void Msg_WheelDown(const MouseCoords& mc) override;
+    /// Verarbeitung des Verschiebens der Maus.
+    void Msg_MouseMove(const MouseCoords& mc) override;
+    /// Verarbeitung Keyboard-Event
+    void Msg_KeyDown(const KeyEvent& ke) override;
+    // Show a tooltip
+    // ttw: Window that the tooltip is for, used when updating current tooltip
+    // tooltip: The tooltip text, empty to hide
+    // updateCurrent: If true, only update if the current tooltip is for ttw
+    void SetToolTip(const ctrlBaseTooltip* ttw, const std::string& tooltip, bool updateCurrent = false);
+
+    /// Verarbeitung Spielfenstergröße verändert (vom Betriebssystem aus)
+    void WindowResized() override;
+    VrSettings GetVrSettings() const override;
+    bool VrScroll(const MouseCoords& mc, bool up, bool perform = true) override;
+    void VrPan(int x, int y) override;
+    bool VrMapAt(const MouseCoords& mc) const override;
+    void VrDrag(const MouseCoords& from, const MouseCoords& to) override;
+    void SaveVrPanel(int width, int x, int y, int z, int yaw, int distance, int presentation) override;
+    void VrFocus(bool focused) override;
+    /// Verarbeitung Spielfenstergröße verändert (vom Spiel aus)
+    // Achtung: nicht dieselbe Nachricht, die die Window-Klasse empfängt
+    void Msg_ScreenResize(const Extent& newSize);
+
+    /// Return the window currently on the top (probably active)
+    IngameWindow* GetTopMostWindow() const;
+    IngameWindow* FindWindowAtPos(const Position& pos) const;
+    IngameWindow* FindNonModalWindow(unsigned id) const;
+
+    Desktop* GetCurrentDesktop() { return curDesktop.get(); }
+    /// Makes the given window (desktop or ingame window) active and all others inactive
+    void SetActiveWindow(Window&);
+
+    void SetCursor(Cursor cursor = Cursor::Hand);
+    Cursor GetCursor() const { return cursor_; }
+
+    SnapOffset snapWindow(Window* wnd, const Rect& wndRect) const;
+
+private:
+    class Tooltip;
+
+    /// Find the active window (desktop or ingame window)
+    /// If mc is given get the window at the mouse position unless a modal window is active
+    Window* findAndActivateWindow(Position mousePos);
+    /// Get the active window (desktop or ingame window)
+    Window* getActiveWindow() const;
+
+    void DrawCursor();
+    void DrawToolTip();
+
+    /// VR menu navigation by stick/A/B (skill xr-vr-menu P2): top window if it is a modal VR menu window.
+    IngameWindow* vrMenuWindow() const;
+    void VrMenuKey(const KeyEvent& ke);
+    void DrawVrMenuFocus();
+    const Window* vrFocusWnd_ = nullptr; /// window the focus belongs to (compared with the top window only)
+    unsigned vrFocusCtrl_ = 0;           /// focused control ID in that window
+    bool vrFocusShown_ = false;          /// focus frame visible: only after the first stick/A use
+
+    void TakeScreenshot() const;
+    /// wechselt einen Desktop
+    void DoDesktopSwitch();
+    /// Actually close all ingame windows marked for closing
+    void CloseMarkedIngameWnds();
+    /// Close the window and remove it from the window list
+    void DoClose(IngameWindow* window);
+
+    Cursor cursor_;
+    std::unique_ptr<Desktop> curDesktop;  /// aktueller Desktop
+    std::unique_ptr<Desktop> nextdesktop; /// der nächste Desktop
+    bool disable_mouse;                   /// Mausdeaktivator, zum beheben des "Switch-Anschließend-Drück-Bug"s
+
+    std::list<std::unique_ptr<IngameWindow>> windows; /// Fensterliste
+    /// Windows that will be shown after desktop switch
+    /// Otherwise the window will not be shown, if it was added after a switch request
+    std::vector<std::unique_ptr<IngameWindow>> nextWnds;
+    Position lastMousePos;
+    std::unique_ptr<Tooltip> curTooltip;
+    Extent curRenderSize; /// current render size
+
+    // Für Doppelklick merken:
+    unsigned lastLeftClickTime; /// Zeit des letzten Links-Klicks
+    Position lastLeftClickPos;  /// Position beim letzten Links-Klick
+};
+
+#define WINDOWMANAGER WindowManager::inst()

@@ -1,0 +1,230 @@
+// Copyright (C) 2005 - 2026 Settlers Freaks (sf-team at siedler25.org)
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include "iwBuildOrder.h"
+#include "AddonHelperFunctions.h"
+#include "GamePlayer.h"
+#include "GlobalGameSettings.h"
+#include "LeatherLoader.h"
+#include "Loader.h"
+#include "WindowManager.h"
+#include "WineLoader.h"
+#include "addons/const_addons.h"
+#include "controls/ctrlComboBox.h"
+#include "controls/ctrlImage.h"
+#include "controls/ctrlList.h"
+#include "network/GameClient.h"
+#include "world/GameWorldBase.h"
+#include "world/GameWorldViewer.h"
+#include "gameData/BuildingConsts.h"
+#include "gameData/const_gui_ids.h"
+
+void iwBuildOrder::fillBuildOrder(const BuildOrders& build_order)
+{
+    pendingBuildOrder.assign(build_order.begin(), build_order.end());
+    helpers::erase_if(pendingBuildOrder, makeIsUnusedBuilding(gwv.GetWorld().GetGGS()));
+}
+
+iwBuildOrder::iwBuildOrder(const GameWorldViewer& gwv)
+    : TransmitSettingsIgwAdapter(CGI_BUILDORDER, IngameWindow::posLastOrCenter, Extent(320, 300),
+                                 _("Building sequence"), LOADER.GetImageN("io", 5)),
+      gwv(gwv)
+{
+    ctrlList* list = AddList(0, DrawPoint(15, 60), Extent(150, 220), TextureColor::Grey, NormalFont);
+
+    fillBuildOrder(GAMECLIENT.visual_settings.build_order);
+
+    for(const auto buildOrder : pendingBuildOrder)
+        list->AddItem(_(BUILDING_NAMES[buildOrder])); //-V807
+
+    // Nach ganz oben
+    AddImageButton(1, DrawPoint(250, 194), Extent(48, 20), TextureColor::Grey, LOADER.GetImageN("io", 215), _("Top"));
+    // Hoch
+    AddImageButton(2, DrawPoint(250, 216), Extent(48, 20), TextureColor::Grey, LOADER.GetImageN("io", 33), _("Up"));
+    // Runter
+    AddImageButton(3, DrawPoint(250, 238), Extent(48, 20), TextureColor::Grey, LOADER.GetImageN("io", 34), _("Down"));
+    // Nach ganz unten
+    AddImageButton(4, DrawPoint(250, 260), Extent(48, 20), TextureColor::Grey, LOADER.GetImageN("io", 216),
+                   _("Bottom"));
+
+    // Bild der Auswahl
+    AddImage(5, DrawPoint(240, 150), LOADER.GetBuildingTex(gwv.GetPlayer().nation, pendingBuildOrder[0]));
+
+    ctrlComboBox* combo = AddComboBox(6, DrawPoint(15, 30), Extent(290, 20), TextureColor::Grey, NormalFont, 100);
+    combo->AddItem(_("Sequence of given order"));   // "Reihenfolge der Auftraggebung"
+    combo->AddItem(_("After the following order")); // "Nach folgender Reihenfolge"
+
+    // Eintrag in Combobox auswählen
+    useCustomBuildOrder = GAMECLIENT.visual_settings.useCustomBuildOrder;
+    combo->SetSelection(useCustomBuildOrder ? 1 : 0);
+
+    // Standard
+    AddImageButton(10, DrawPoint(200, 250), Extent(48, 30), TextureColor::Grey, LOADER.GetImageN("io", 191),
+                   _("Default"));
+
+    list->SetSelection(0);
+}
+
+void iwBuildOrder::TransmitSettings()
+{
+    if(GAMECLIENT.IsReplayModeOn())
+        return;
+    // Wurden Einstellungen geändert?
+    if(settings_changed)
+    {
+        // Einstellungen speichern
+        useCustomBuildOrder = GetCtrl<ctrlComboBox>(6)->GetSelection() != 0u;
+        BuildOrders transmitPendingBuildOrder;
+        unsigned int i = 0;
+        for(; i < pendingBuildOrder.size(); i++)
+            transmitPendingBuildOrder[i] = pendingBuildOrder[i];
+
+        if(!wineaddon::isAddonActive(gwv.GetWorld()))
+        {
+            transmitPendingBuildOrder[i++] = BuildingType::Vineyard;
+            transmitPendingBuildOrder[i++] = BuildingType::Winery;
+            transmitPendingBuildOrder[i++] = BuildingType::Temple;
+        }
+
+        // This is not an OBB write because pendingBuildOrder does not contain the leather/wine building
+        // entries when the addon is inactive. So the pendingBuildOrder list is shorter then
+        // the transmitPendingBuildOrder list. See fillBuildOrder at the top of this file.
+        if(!gwv.GetWorld().GetGGS().isEnabled(AddonId::CHARBURNER))
+            transmitPendingBuildOrder[i++] = BuildingType::Charburner;
+
+        if(!leatheraddon::isAddonActive(gwv.GetWorld()))
+        {
+            transmitPendingBuildOrder[i++] = BuildingType::Skinner;
+            transmitPendingBuildOrder[i++] = BuildingType::Tannery;
+            transmitPendingBuildOrder[i++] = BuildingType::LeatherWorks;
+        }
+
+        if(GAMECLIENT.ChangeBuildOrder(useCustomBuildOrder, transmitPendingBuildOrder))
+        {
+            GAMECLIENT.visual_settings.build_order = transmitPendingBuildOrder;
+            GAMECLIENT.visual_settings.useCustomBuildOrder = useCustomBuildOrder;
+            settings_changed = false;
+        }
+    }
+}
+
+void iwBuildOrder::Msg_ListSelectItem(const unsigned ctrl_id, const int selection)
+{
+    if(GAMECLIENT.IsReplayModeOn())
+        return;
+    switch(ctrl_id)
+    {
+        default: break;
+
+        case 0:
+        {
+            GetCtrl<ctrlImage>(5)->SetImage(
+              LOADER.GetBuildingTex(gwv.GetPlayer().nation, pendingBuildOrder[selection]));
+        }
+        break;
+    }
+}
+
+void iwBuildOrder::Msg_ComboSelectItem(unsigned ctrl_id, unsigned selection)
+{
+    if(ctrl_id == 6)
+    {
+        useCustomBuildOrder = selection != 0u;
+        settings_changed = true;
+    }
+}
+
+void iwBuildOrder::Msg_ButtonClick(const unsigned ctrl_id)
+{
+    if(GAMECLIENT.IsReplayModeOn())
+        return;
+    auto* list = GetCtrl<ctrlList>(0);
+
+    if(!list->GetSelection())
+        return;
+
+    unsigned selection = *list->GetSelection();
+    unsigned numOptions = list->GetNumLines();
+
+    // Auswahl gültig?
+
+    switch(ctrl_id)
+    {
+        default: break;
+
+        case 1: // Nach ganz oben
+        {
+            while(selection > 0)
+            {
+                std::swap(pendingBuildOrder[selection - 1], pendingBuildOrder[selection]);
+                list->Swap(selection - 1, selection);
+                --selection;
+            }
+            settings_changed = true;
+        }
+        break;
+        case 2: // Hoch
+        {
+            if(selection > 0)
+            {
+                std::swap(pendingBuildOrder[selection - 1], pendingBuildOrder[selection]);
+                list->Swap(selection - 1, selection);
+            }
+            settings_changed = true;
+        }
+        break;
+        case 3: // Runter
+        {
+            if(selection < numOptions - 1u)
+            {
+                std::swap(pendingBuildOrder[selection + 1], pendingBuildOrder[selection]);
+                list->Swap(selection + 1, selection);
+            }
+            settings_changed = true;
+        }
+        break;
+        case 4: // Nach ganz unten
+        {
+            while(selection < numOptions - 1u)
+            {
+                std::swap(pendingBuildOrder[selection + 1], pendingBuildOrder[selection]);
+                list->Swap(selection + 1, selection);
+                ++selection;
+            }
+            settings_changed = true;
+        }
+        break;
+        case 10: // Standardwerte
+        {
+            // Baureihenfolge vom Spieler kopieren
+            fillBuildOrder(GAMECLIENT.default_settings.build_order);
+
+            auto* list = GetCtrl<ctrlList>(0);
+            list->DeleteAllItems();
+
+            // Liste füllen
+            for(unsigned char i = 0; i < 31; ++i)
+                list->AddItem(_(BUILDING_NAMES[pendingBuildOrder[i]]));
+            list->SetSelection(0);
+
+            GetCtrl<ctrlImage>(5)->SetImage(LOADER.GetBuildingTex(gwv.GetPlayer().nation, pendingBuildOrder[0]));
+
+            settings_changed = true;
+        }
+        break;
+    }
+}
+
+void iwBuildOrder::UpdateSettings()
+{
+    if(GAMECLIENT.IsReplayModeOn())
+    {
+        gwv.GetPlayer().FillVisualSettings(GAMECLIENT.visual_settings);
+        fillBuildOrder(GAMECLIENT.visual_settings.build_order);
+        useCustomBuildOrder = GAMECLIENT.visual_settings.useCustomBuildOrder;
+    }
+    GetCtrl<ctrlComboBox>(6)->SetSelection(useCustomBuildOrder ? 1 : 0);
+    for(unsigned char i = 0; i < pendingBuildOrder.size(); ++i)
+        GetCtrl<ctrlList>(0)->SetItemText(i, _(BUILDING_NAMES[pendingBuildOrder[i]]));
+}

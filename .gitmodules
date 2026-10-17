@@ -1,0 +1,264 @@
+[submodule "android/app/jni/s25client/data/RTTR/MAPS"]
+	path = android/app/jni/s25client/data/RTTR/MAPS
+	url = https://github.com/Return-To-The-Roots/s25maps.git
+[submodule "android/app/jni/s25client/external/dev-tools"]
+	path = android/app/jni/s25client/external/dev-tools
+	url = https://github.com/Return-To-The-Roots/dev-tools.git
+[submodule "android/app/jni/s25client/external/kaguya"]
+	path = android/app/jni/s25client/external/kaguya
+	url = https://github.com/Return-To-The-Roots/kaguya.git
+[submodule "android/app/jni/s25client/external/languages"]
+	path = android/app/jni/s25client/external/languages
+	url = https://github.com/Return-To-The-Roots/languages.git
+[submodule "android/app/jni/s25client/external/libendian"]
+	path = android/app/jni/s25client/external/libendian
+	url = https://github.com/Return-To-The-Roots/libendian.git
+[submodule "android/app/jni/s25client/external/liblobby"]
+	path = android/app/jni/s25client/external/liblobby
+	url = https://github.com/Return-To-The-Roots/liblobby.git
+[submodule "android/app/jni/s25client/external/libsiedler2"]
+	path = android/app/jni/s25client/external/libsiedler2
+	url = https://github.com/Return-To-The-Roots/libsiedler2.git
+[submodule "android/app/jni/s25client/external/libutil"]
+	path = android/app/jni/s25client/external/libutil
+	url = https://github.com/Return-To-The-Roots/libutil.git
+[submodule "android/app/jni/s25client/external/mygettext"]
+	path = android/app/jni/s25client/external/mygettext
+	url = https://github.com/Return-To-The-Roots/mygettext.git
+[submodule "android/app/jni/s25client/external/s25edit"]
+	path = android/app/jni/s25client/external/s25edit
+	url = https://github.com/Return-To-The-Roots/s25edit.git
+[submodule "android/app/jni/s25client/external/s25update"]
+	path = android/app/jni/s25client/external/s25update
+	url = https://github.com/Return-To-The-Roots/s25update.git
+[submodule "android/app/jni/s25client/external/turtle"]
+	path = android/app/jni/s25client/external/turtle
+	url = https://github.com/mat007/turtle.git
+[submodule "android/external/SDL"]
+	path = android/external/SDL
+	url = https://github.com/libsdl-org/SDL
+[submodule "android/external/SDL_mixer"]
+	path = android/external/SDL_mixer
+	url = https://github.com/libsdl-org/SDL_mixer
+[submodule "android/external/boost/algorithm"]
+	path = android/external/boost/algorithm
+	url = https://github.com/boostorg/algorithm
+[submodule "android/external/boost/align"]
+	path = android/external/boost/align
+	url = https://github.com/boostorg/align
+[submodule "android/external/boost/any"]
+	path = android/external/boost/any
+	url = https://github.com/boostorg/any
+[submodule "android/external/boost/array"]
+	path = android/external/boost/array
+	url = https://github.com/boostorg/array
+[submodule "android/external/boost/assert"]
+	path = android/external/boost/assert
+	url = https://github.com/boostorg/assert
+[submodule "android/external/boost/atomic"]
+	path = android/external/boost/atomic
+	url = https://github.com/boostorg/atomic
+[submodule "android/external/boost/bind"]
+	path = android/external/boost/bind
+	url = https://github.com/boostorg/bind
+[submodule "android/external/boost/chrono"]
+	path = android/external/boost/chrono
+	url = https://github.com/boostorg/chrono
+[submodule "android/external/boost/circular_buffer"]
+	path = android/external/boost/circular_buffer
+	url = https://github.com/boostorg/circular_buffer
+[submodule "android/external/boost/concept_check"]
+	path = android/external/boost/concept_check
+	url = https://github.com/boostorg/concept_check
+[submodule "android/external/boost/config"]
+	path = android/external/boost/config
+	url = https://github.com/boostorg/config
+[submodule "android/external/boost/container"]
+	path = android/external/boost/container
+	url = https://github.com/boostorg/container
+[submodule "android/external/boost/container_hash"]
+	path = android/external/boost/container_hash
+	url = https://github.com/boostorg/container_hash
+[submodule "android/external/boost/conversion"]
+	path = android/external/boost/conversion
+	url = https://github.com/boostorg/conversion
+[submodule "android/external/boost/core"]
+	path = android/external/boost/core
+	url = https://github.com/boostorg/core
+[submodule "android/external/boost/date_time"]
+	path = android/external/boost/date_time
+	url = https://github.com/boostorg/date_time
+[submodule "android/external/boost/describe"]
+	path = android/external/boost/describe
+	url = https://github.com/boostorg/describe
+[submodule "android/external/boost/detail"]
+	path = android/external/boost/detail
+	url = https://github.com/boostorg/detail
+[submodule "android/external/boost/dll"]
+	path = android/external/boost/dll
+	url = https://github.com/boostorg/dll
+[submodule "android/external/boost/dynamic_bitset"]
+	path = android/external/boost/dynamic_bitset
+	url = https://github.com/boostorg/dynamic_bitset
+[submodule "android/external/boost/endian"]
+	path = android/external/boost/endian
+	url = https://github.com/boostorg/endian
+[submodule "android/external/boost/exception"]
+	path = android/external/boost/exception
+	url = https://github.com/boostorg/exception
+[submodule "android/external/boost/filesystem"]
+	path = android/external/boost/filesystem
+	url = https://github.com/boostorg/filesystem
+[submodule "android/external/boost/format"]
+	path = android/external/boost/format
+	url = https://github.com/boostorg/format
+[submodule "android/external/boost/function"]
+	path = android/external/boost/function
+	url = https://github.com/boostorg/function
+[submodule "android/external/boost/function_types"]
+	path = android/external/boost/function_types
+	url = https://github.com/boostorg/function_types
+[submodule "android/external/boost/functional"]
+	path = android/external/boost/functional
+	url = https://github.com/boostorg/functional
+[submodule "android/external/boost/fusion"]
+	path = android/external/boost/fusion
+	url = https://github.com/boostorg/fusion
+[submodule "android/external/boost/integer"]
+	path = android/external/boost/integer
+	url = https://github.com/boostorg/integer
+[submodule "android/external/boost/interprocess"]
+	path = android/external/boost/interprocess
+	url = https://github.com/boostorg/interprocess
+[submodule "android/external/boost/intrusive"]
+	path = android/external/boost/intrusive
+	url = https://github.com/boostorg/intrusive
+[submodule "android/external/boost/io"]
+	path = android/external/boost/io
+	url = https://github.com/boostorg/io
+[submodule "android/external/boost/iostreams"]
+	path = android/external/boost/iostreams
+	url = https://github.com/boostorg/iostreams
+[submodule "android/external/boost/iterator"]
+	path = android/external/boost/iterator
+	url = https://github.com/boostorg/iterator
+[submodule "android/external/boost/lexical_cast"]
+	path = android/external/boost/lexical_cast
+	url = https://github.com/boostorg/lexical_cast
+[submodule "android/external/boost/locale"]
+	path = android/external/boost/locale
+	url = https://github.com/boostorg/locale
+[submodule "android/external/boost/move"]
+	path = android/external/boost/move
+	url = https://github.com/boostorg/move
+[submodule "android/external/boost/mp11"]
+	path = android/external/boost/mp11
+	url = https://github.com/boostorg/mp11
+[submodule "android/external/boost/mpl"]
+	path = android/external/boost/mpl
+	url = https://github.com/boostorg/mpl
+[submodule "android/external/boost/nowide"]
+	path = android/external/boost/nowide
+	url = https://github.com/boostorg/nowide
+[submodule "android/external/boost/numeric_conversion"]
+	path = android/external/boost/numeric_conversion
+	url = https://github.com/boostorg/numeric_conversion
+[submodule "android/external/boost/optional"]
+	path = android/external/boost/optional
+	url = https://github.com/boostorg/optional
+[submodule "android/external/boost/parameter"]
+	path = android/external/boost/parameter
+	url = https://github.com/boostorg/parameter
+[submodule "android/external/boost/predef"]
+	path = android/external/boost/predef
+	url = https://github.com/boostorg/predef
+[submodule "android/external/boost/preprocessor"]
+	path = android/external/boost/preprocessor
+	url = https://github.com/boostorg/preprocessor
+[submodule "android/external/boost/program_options"]
+	path = android/external/boost/program_options
+	url = https://github.com/boostorg/program_options
+[submodule "android/external/boost/ptr_container"]
+	path = android/external/boost/ptr_container
+	url = https://github.com/boostorg/ptr_container
+[submodule "android/external/boost/random"]
+	path = android/external/boost/random
+	url = https://github.com/boostorg/random
+[submodule "android/external/boost/range"]
+	path = android/external/boost/range
+	url = https://github.com/boostorg/range
+[submodule "android/external/boost/ratio"]
+	path = android/external/boost/ratio
+	url = https://github.com/boostorg/ratio
+[submodule "android/external/boost/regex"]
+	path = android/external/boost/regex
+	url = https://github.com/boostorg/regex
+[submodule "android/external/boost/scope"]
+	path = android/external/boost/scope
+	url = https://github.com/boostorg/scope
+[submodule "android/external/boost/signals2"]
+	path = android/external/boost/signals2
+	url = https://github.com/boostorg/signals2
+[submodule "android/external/boost/smart_ptr"]
+	path = android/external/boost/smart_ptr
+	url = https://github.com/boostorg/smart_ptr
+[submodule "android/external/boost/static_assert"]
+	path = android/external/boost/static_assert
+	url = https://github.com/boostorg/static_assert
+[submodule "android/external/boost/system"]
+	path = android/external/boost/system
+	url = https://github.com/boostorg/system
+[submodule "android/external/boost/test"]
+	path = android/external/boost/test
+	url = https://github.com/boostorg/test
+[submodule "android/external/boost/thread"]
+	path = android/external/boost/thread
+	url = https://github.com/boostorg/thread
+[submodule "android/external/boost/throw_exception"]
+	path = android/external/boost/throw_exception
+	url = https://github.com/boostorg/throw_exception
+[submodule "android/external/boost/tokenizer"]
+	path = android/external/boost/tokenizer
+	url = https://github.com/boostorg/tokenizer
+[submodule "android/external/boost/tuple"]
+	path = android/external/boost/tuple
+	url = https://github.com/boostorg/tuple
+[submodule "android/external/boost/type_index"]
+	path = android/external/boost/type_index
+	url = https://github.com/boostorg/type_index
+[submodule "android/external/boost/type_traits"]
+	path = android/external/boost/type_traits
+	url = https://github.com/boostorg/type_traits
+[submodule "android/external/boost/typeof"]
+	path = android/external/boost/typeof
+	url = https://github.com/boostorg/typeof
+[submodule "android/external/boost/unordered"]
+	path = android/external/boost/unordered
+	url = https://github.com/boostorg/unordered
+[submodule "android/external/boost/utility"]
+	path = android/external/boost/utility
+	url = https://github.com/boostorg/utility
+[submodule "android/external/boost/variant"]
+	path = android/external/boost/variant
+	url = https://github.com/boostorg/variant
+[submodule "android/external/boost/variant2"]
+	path = android/external/boost/variant2
+	url = https://github.com/boostorg/variant2
+[submodule "android/external/boost/winapi"]
+	path = android/external/boost/winapi
+	url = https://github.com/boostorg/winapi
+[submodule "android/external/bzip2"]
+	path = android/external/bzip2
+	url = https://gitlab.com/bzip2/bzip2
+[submodule "android/external/gl4es"]
+	path = android/external/gl4es
+	url = https://github.com/ptitSeb/gl4es
+[submodule "android/external/lua/lua"]
+	path = android/external/lua/lua
+	url = https://github.com/lua/lua
+[submodule "android/external/miniupnpc"]
+	path = android/external/miniupnpc
+	url = https://github.com/transmission/miniupnpc
+[submodule "third_party/openxr-sdk-source"]
+	path = third_party/openxr-sdk-source
+	url = https://github.com/KhronosGroup/OpenXR-SDK-Source.git

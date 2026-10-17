@@ -1,0 +1,69 @@
+// Copyright (C) 2005 - 2021 Settlers Freaks (sf-team at siedler25.org)
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#define BOOST_TEST_MODULE RTTR_Network
+
+#include "TestServer.h"
+#include "helpers/CIUtils.h"
+#include <rttr/test/Fixture.hpp>
+#include <s25util/Socket.h>
+#include <boost/test/unit_test.hpp>
+
+#if RTTR_HAS_VLD
+#    include <vld.h>
+#endif
+
+struct NetworkFixture : rttr::test::Fixture
+{
+    NetworkFixture() { Socket::Initialize(); }
+    ~NetworkFixture() { Socket::Shutdown(); }
+};
+
+BOOST_GLOBAL_FIXTURE(NetworkFixture);
+
+BOOST_AUTO_TEST_CASE(TestServer_Works)
+{
+    TestServer server;
+    // Run might need to be called multiple times as connection and drop might not be immediate
+    auto runServer = [&server]() {
+        const auto result = server.run();
+        for(int i = 0; i < 5; i++)
+            BOOST_TEST(server.run() == result);
+        return result;
+    };
+    BOOST_TEST(!runServer());
+    const auto port = server.tryListen();
+    BOOST_TEST_REQUIRE(port > 0);
+    BOOST_TEST(runServer());
+
+    Socket sock;
+    BOOST_TEST_REQUIRE(sock.Connect("localhost", port, false));
+    BOOST_TEST(server.run(true));
+    BOOST_TEST_REQUIRE(server.connections.size() == 1u);
+    BOOST_TEST(server.stop());
+    BOOST_TEST_REQUIRE(server.connections.empty());
+
+    BOOST_TEST_REQUIRE(server.listen(port));
+    Socket sock2;
+    BOOST_TEST_REQUIRE(sock.Connect("localhost", port, false));
+    BOOST_TEST(server.run(true));
+    BOOST_TEST_REQUIRE(sock2.Connect("localhost", port, false));
+    BOOST_TEST(server.run(true));
+    BOOST_TEST_REQUIRE(server.connections.size() == 2u);
+    BOOST_TEST(runServer());
+    sock.Close();
+    BOOST_TEST(runServer());
+    if(rttr::isRunningOnCI()) // On CI retry to avoid flakes
+    {
+        for(int i = 0; i < 5; i++)
+        {
+            if(server.connections.size() == 2u)
+            {
+                sock.Sleep(50);          // LCOV_EXCL_LINE
+                BOOST_TEST(runServer()); // LCOV_EXCL_LINE
+            }
+        }
+    }
+    BOOST_TEST(server.connections.size() == 1u);
+}

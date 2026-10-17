@@ -1,0 +1,715 @@
+// Copyright (C) 2005 - 2026 Settlers Freaks (sf-team at siedler25.org)
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include "Settings.h"
+#include "DrawPoint.h"
+#include "RTTR_Version.h"
+#include "RttrConfig.h"
+#include "driver/VideoInterface.h"
+#include "driver/VrMenuModel.h"
+#include "drivers/AudioDriverWrapper.h"
+#include "drivers/VideoDriverWrapper.h"
+#include "enum_cast.hpp"
+#include "files.h"
+#include "helpers/MaxEnumValue.h"
+#include "helpers/strUtils.h"
+#include "languages.h"
+#include "gameData/PortraitConsts.h"
+#include "gameData/const_gui_ids.h"
+#include "libsiedler2/ArchivItem_Ini.h"
+#include "libsiedler2/ArchivItem_Text.h"
+#include "libsiedler2/libsiedler2.h"
+#include "s25util/StringConversion.h"
+#include "s25util/System.h"
+#include "s25util/error.h"
+#include <boost/filesystem/operations.hpp>
+#include <algorithm>
+
+namespace {
+#ifdef __ANDROID__
+constexpr bool SHARED_TEXTURES_DEFAULT = false;
+constexpr MapScrollMode MAP_SCROLL_MODE_DEFAULT = MapScrollMode::GrabAndDrag;
+#else
+constexpr bool SHARED_TEXTURES_DEFAULT = true;
+constexpr MapScrollMode MAP_SCROLL_MODE_DEFAULT = MapScrollMode::ScrollOpposite;
+#endif
+} // namespace
+
+const int Settings::VERSION = 13;
+const std::array<std::string, 10> Settings::SECTION_NAMES = {
+  {"global", "video", "language", "driver", "sound", "lobby", "server", "proxy", "interface", "addons"}};
+
+const std::array<short, 13> Settings::SCREEN_REFRESH_RATES = {
+  {-1, 25, 30, 50, 60, 75, 80, 100, 120, 150, 180, 200, 240}};
+
+const std::map<GUI_ID, std::string> persistentWindows = {{CGI_CHAT, "wnd_chat"},
+                                                         {CGI_POSTOFFICE, "wnd_postoffice"},
+                                                         {CGI_DISTRIBUTION, "wnd_distribution"},
+                                                         {CGI_BUILDORDER, "wnd_buildorder"},
+                                                         {CGI_TRANSPORT, "wnd_transport"},
+                                                         {CGI_MILITARY, "wnd_military"},
+                                                         {CGI_TOOLS, "wnd_tools"},
+                                                         {CGI_INVENTORY, "wnd_inventory"},
+                                                         {CGI_MINIMAP, "wnd_minimap"},
+                                                         {CGI_BUILDINGS, "wnd_buildings"},
+                                                         {CGI_BUILDINGSPRODUCTIVITY, "wnd_buildingsproductivity"},
+                                                         {CGI_MUSICPLAYER, "wnd_musicplayer"},
+                                                         {CGI_STATISTICS, "wnd_statistics"},
+                                                         {CGI_ECONOMICPROGRESS, "wnd_economicprogress"},
+                                                         {CGI_DIPLOMACY, "wnd_diplomacy"},
+                                                         {CGI_SHIP, "wnd_ship"},
+                                                         {CGI_MERCHANDISE_STATISTICS, "wnd_merchandise_statistics"}};
+
+namespace validate {
+std::optional<uint16_t> checkPort(const std::string& port)
+{
+    int32_t iPort;
+    if((helpers::tryFromString(port, iPort) || s25util::tryFromStringClassic(port, iPort)) && checkPort(iPort))
+        return static_cast<uint16_t>(iPort);
+    else
+        return std::nullopt;
+}
+bool checkPort(int port)
+{
+    // Disallow port 0 as it may cause problems
+    return port > 0 && port <= 65535;
+}
+} // namespace validate
+
+Settings::Settings() //-V730
+{
+    LoadDefaults();
+}
+
+void Settings::LoadDefaults()
+{
+    // global
+    // {
+    global.submitDebugData = SubmitDebugData::AskAtStart;
+    global.useUPNP = false;
+    global.smartCursor = true;
+    global.debugMode = false;
+    global.showGFInfo = false;
+    // }
+
+    // video
+    // {
+    if(VIDEODRIVER.IsLoaded())
+    {
+        video.fullscreenSize = (VIDEODRIVER.GetDisplayMode() == DisplayMode::Fullscreen) ? VIDEODRIVER.GetWindowSize() :
+                                                                                           VIDEODRIVER.MinWindowSize;
+        video.windowedSize = (VIDEODRIVER.GetDisplayMode() == DisplayMode::Windowed) ? VIDEODRIVER.GetWindowSize() :
+                                                                                       VIDEODRIVER.MinWindowSize;
+        video.displayMode = VIDEODRIVER.GetDisplayMode();
+    } else
+    {
+        video.windowedSize = video.fullscreenSize = VIDEODRIVER.MinWindowSize;
+        video.displayMode = DisplayMode::Windowed;
+    }
+    video.framerate = 0; // Special value for HW vsync
+    video.vbo = true;
+    video.sharedTextures = SHARED_TEXTURES_DEFAULT;
+    video.vr = {};
+    video.guiScale = 0; // special value indicating automatic selection
+    // }
+
+    // language
+    // {
+    language.language.clear();
+    // }
+
+    LANGUAGES.setLanguage(language.language);
+
+    // driver
+    // {
+    driver.audio = AUDIODRIVER.GetName();
+    driver.video = VIDEODRIVER.GetName();
+    // }
+
+    // sound
+    // {
+    sound.musicEnabled = false;
+    sound.musicVolume = 30;
+    sound.effectsEnabled = true;
+    sound.effectsVolume = 75;
+    sound.birdsEnabled = true;
+    sound.playlist = s25::files::defaultPlaylist;
+    // }
+
+    // lobby
+    // {
+
+    lobby.name = System::getUserName();
+    lobby.portraitIndex = 0;
+    lobby.password.clear();
+    lobby.savePassword = false;
+    // }
+
+    // server
+    // {
+    server.lastIP.clear();
+    server.localPort = 3665;
+    server.ipv6 = false;
+    // }
+
+    proxy = ProxySettings();
+    proxy.port = 1080;
+
+    // interface
+    // {
+    interface.autosaveInterval = 0;
+    interface.mapScrollMode = MAP_SCROLL_MODE_DEFAULT;
+    interface.enableWindowPinning = false;
+    interface.windowSnapDistance = 8;
+    // }
+
+    // addons
+    // {
+    addons.configuration.clear();
+    // }
+
+    LoadIngameDefaults();
+}
+
+void Settings::LoadIngameDefaults()
+{
+    // ingame
+    // {
+    ingame.scaleStatistics = false;
+    ingame.showBQ = false;
+    ingame.showNames = false;
+    ingame.showProductivity = false;
+    ingame.minimapExtended = false;
+    // }
+
+    // windows
+    // {
+    for(const auto& window : persistentWindows)
+        windows.persistentSettings[window.first] = PersistentWindowSettings();
+    // }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Routine for loading the configuration
+void Settings::Load()
+{
+    libsiedler2::Archiv settings;
+    const auto settingsPath = RTTRCONFIG.ExpandPath(s25::resources::config);
+    try
+    {
+        if(libsiedler2::Load(settingsPath, settings) != 0 || settings.size() < SECTION_NAMES.size())
+            throw std::runtime_error("File missing or invalid");
+
+        const libsiedler2::ArchivItem_Ini* iniGlobal =
+          static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("global"));
+        const libsiedler2::ArchivItem_Ini* iniVideo = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("video"));
+        const libsiedler2::ArchivItem_Ini* iniLanguage =
+          static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("language"));
+        const libsiedler2::ArchivItem_Ini* iniDriver =
+          static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("driver"));
+        const libsiedler2::ArchivItem_Ini* iniSound = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("sound"));
+        const libsiedler2::ArchivItem_Ini* iniLobby = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("lobby"));
+        const libsiedler2::ArchivItem_Ini* iniServer =
+          static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("server"));
+        const libsiedler2::ArchivItem_Ini* iniProxy = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("proxy"));
+        const libsiedler2::ArchivItem_Ini* iniInterface =
+          static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("interface"));
+        const libsiedler2::ArchivItem_Ini* iniAddons =
+          static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("addons"));
+
+        // Is one of the categories missing?
+        if(!iniGlobal || !iniVideo || !iniLanguage || !iniDriver || !iniSound || !iniLobby || !iniServer || !iniProxy
+           || !iniInterface || !iniAddons)
+        {
+            throw std::runtime_error("Missing section");
+        }
+        // Is the settings version correct?
+        if(iniGlobal->getValue("version", 0) != VERSION)
+            throw std::runtime_error("Wrong version");
+
+        // global
+        // {
+        if(iniGlobal->getValue("gameversion") != rttr::version::GetRevision())
+            s25util::warning("Your application version has changed - please recheck your settings!");
+
+        unsigned submitDebugData = iniGlobal->getIntValue("submit_debug_data");
+        if(submitDebugData <= helpers::MaxEnumValue_v<SubmitDebugData>)
+            global.submitDebugData = static_cast<SubmitDebugData>(submitDebugData);
+        else
+            global.submitDebugData = SubmitDebugData::AskAtStart;
+        global.useUPNP = iniGlobal->getBoolValue("use_upnp");
+        global.smartCursor = iniGlobal->getValue("smartCursor", true);
+        global.debugMode = iniGlobal->getValue("debugMode", false);
+        global.showGFInfo = iniGlobal->getValue("showGFInfo", false);
+        // };
+
+        // video
+        // {
+        video.windowedSize.width = iniVideo->getIntValue("windowed_width");
+        video.windowedSize.height = iniVideo->getIntValue("windowed_height");
+        video.fullscreenSize.width = iniVideo->getIntValue("fullscreen_width");
+        video.fullscreenSize.height = iniVideo->getIntValue("fullscreen_height");
+        const auto displayMode = iniVideo->getValue("displayMode", -1);
+        if(displayMode >= 0 && static_cast<unsigned>(displayMode) <= helpers::MaxEnumValue_v<DisplayMode::Type>)
+            video.displayMode = DisplayMode(displayMode);
+        else
+        {
+            // Compatibility with prior settings format
+            video.displayMode =
+              iniVideo->getValue("fullscreen", false) ? DisplayMode::Fullscreen : DisplayMode::Windowed;
+        }
+        video.displayMode.resizeable = !iniVideo->getValue("lock_window_size", false);
+        video.framerate = iniVideo->getValue("framerate", 0);
+        video.vbo = iniVideo->getBoolValue("vbo");
+        video.sharedTextures = iniVideo->getBoolValue("shared_textures");
+        video.guiScale = iniVideo->getValue("gui_scale", 0);
+        const VrSettings vrDefaults;
+        video.vr.hoverHighlight=iniVideo->getValue("vr_hoverHighlight",vrDefaults.hoverHighlight);
+        video.vr.clickStabilization=iniVideo->getValue("vr_clickStabilization",vrDefaults.clickStabilization);
+        video.vr.smartScroll=iniVideo->getValue("vr_smartScroll",vrDefaults.smartScroll);
+        video.vr.triggerGrab=iniVideo->getValue("vr_triggerGrab",vrDefaults.triggerGrab);
+        video.vr.gripScrollSpeed=std::max(0,std::min(3,iniVideo->getValue("vr_gripScrollSpeed",vrDefaults.gripScrollSpeed)));
+        video.vr.realTable=iniVideo->getValue("vr_realTable",vrDefaults.realTable);
+        video.vr.smoothing = std::max(0, std::min(2, iniVideo->getValue("vr_smoothing", vrDefaults.smoothing)));
+        video.vr.panelWidthMm = std::max(1000, std::min(3200, iniVideo->getValue("vr_panelWidthMm", vrDefaults.panelWidthMm)));
+        video.vr.panelXmm = std::max(-100000, std::min(100000, iniVideo->getValue("vr_panelXmm", vrDefaults.panelXmm)));
+        video.vr.panelYmm = std::max(-100000, std::min(100000, iniVideo->getValue("vr_panelYmm", vrDefaults.panelYmm)));
+        video.vr.panelZmm = std::max(-100000, std::min(100000, iniVideo->getValue("vr_panelZmm", vrDefaults.panelZmm)));
+        video.vr.panelYawMilli = std::max(-3142, std::min(3142, iniVideo->getValue("vr_panelYawMilli", vrDefaults.panelYawMilli)));
+        video.vr.haptics = iniVideo->getValue("vr_haptics", vrDefaults.haptics);
+        video.vr.leftHanded = iniVideo->getValue("vr_leftHanded", vrDefaults.leftHanded);
+        video.vr.autoPause = iniVideo->getValue("vr_autoPause", vrDefaults.autoPause);
+        video.vr.rememberPanel = iniVideo->getValue("vr_rememberPanel", vrDefaults.rememberPanel);
+        for(unsigned i = 0; i < video.vr.buttons.size(); ++i) video.vr.buttons[i] = std::max(0, std::min(18, iniVideo->getValue("vr_buttons_" + std::to_string(i), vrDefaults.buttons[i])));
+        for(unsigned i = 0; i < video.vr.longButtons.size(); ++i) video.vr.longButtons[i] = std::max(0, std::min(18, iniVideo->getValue("vr_longButtons_" + std::to_string(i), vrDefaults.longButtons[i])));
+        for(unsigned i = 0; i < video.vr.favorites.size(); ++i) video.vr.favorites[i] = std::max(0, std::min(18, iniVideo->getValue("vr_favorites_" + std::to_string(i), vrDefaults.favorites[i])));
+
+        video.vr.rayWidth = std::max(0, std::min(2, iniVideo->getValue("vr_rayWidth", vrDefaults.rayWidth)));
+        video.vr.rayColor = std::max(0, std::min(3, iniVideo->getValue("vr_rayColor", vrDefaults.rayColor)));
+        video.vr.markerShape = std::max(0, std::min(2, iniVideo->getValue("vr_markerShape", vrDefaults.markerShape)));
+        video.vr.markerSize = std::max(0, std::min(2, iniVideo->getValue("vr_markerSize", vrDefaults.markerSize)));
+        video.vr.cursorSize = std::max(0, std::min(4, iniVideo->getValue("vr_cursorSize", vrDefaults.cursorSize)));
+        video.vr.rayVisible = iniVideo->getValue("vr_rayVisible", vrDefaults.rayVisible);
+        video.vr.markerVisible = iniVideo->getValue("vr_markerVisible", vrDefaults.markerVisible);
+        video.vr.ptrOffsetX = vrMenuModel::ptroff::clampQuarters(iniVideo->getValue("vr_ptrOffsetX", vrDefaults.ptrOffsetX));
+        video.vr.ptrOffsetY = vrMenuModel::ptroff::clampQuarters(iniVideo->getValue("vr_ptrOffsetY", vrDefaults.ptrOffsetY));
+        video.vr.panelControl = std::max(0, std::min(2, iniVideo->getValue("vr_panelControl", vrDefaults.panelControl)));
+        video.vr.mapSpeed = std::max(0, std::min(2, iniVideo->getValue("vr_mapSpeed", vrDefaults.mapSpeed)));
+        video.vr.mapBoost = std::max(0, std::min(3, iniVideo->getValue("vr_mapBoost", vrDefaults.mapBoost)));
+        video.vr.screenDistanceMm = std::max(0, std::min(3500, iniVideo->getValue("vr_screenDistanceMm", vrDefaults.screenDistanceMm)));
+        video.vr.tableDistanceMm = std::max(0, std::min(3500, iniVideo->getValue("vr_tableDistanceMm", vrDefaults.tableDistanceMm)));
+        video.vr.invertLeftX = iniVideo->getValue("vr_invertLeftX", vrDefaults.invertLeftX);
+        video.vr.invertLeftY = iniVideo->getValue("vr_invertLeftY", vrDefaults.invertLeftY);
+        video.vr.invertRightX = iniVideo->getValue("vr_invertRightX", vrDefaults.invertRightX);
+        video.vr.swapRightStickAxes = iniVideo->getValue("vr_swapRightStickAxes", vrDefaults.swapRightStickAxes);
+        video.vr.passthrough = iniVideo->getValue("vr_passthrough", vrDefaults.passthrough);
+        video.vr.passthroughPercent = std::max(0,std::min(100,iniVideo->getValue("vr_passthroughPercent",100)))/10*10;
+        video.vr.buildingHelpSite = std::max(0,std::min(4,iniVideo->getValue("vr_buildingHelpSite",0)));
+        video.vr.headquarters3d = iniVideo->getValue("vr_headquarters3d_beta",false);
+        video.vr.frameMove = iniVideo->getValue("vr_frameMove", vrDefaults.frameMove);
+        video.vr.invertRightY = iniVideo->getValue("vr_invertRightY", vrDefaults.invertRightY);
+        video.vr.startCentered = iniVideo->getValue("vr_startCentered", vrDefaults.startCentered);
+        video.vr.rememberDistance = iniVideo->getValue("vr_rememberDistance", vrDefaults.rememberDistance);
+        video.vr.automaticSaveName = iniVideo->getValue("vr_automaticSaveName", vrDefaults.automaticSaveName);
+        if(video.vr.screenDistanceMm && video.vr.screenDistanceMm < 700) video.vr.screenDistanceMm=700;
+        if(video.vr.tableDistanceMm && video.vr.tableDistanceMm < 700) video.vr.tableDistanceMm=700;
+        // Every start begins on the upright screen in front of the user; table view is chosen per session.
+        video.vr.presentation = 0;
+        video.vr.tableTilt = std::max(0, std::min(3, iniVideo->getValue("vr_table_tilt", vrDefaults.tableTilt)));
+        // Migrate old 40/65/90 cm presets upward by at least one third, once.
+        const int oldHeight=std::max(0,std::min(2,iniVideo->getValue("vr_table_height",1)));
+        video.vr.tableLoweringCm=std::max(0,std::min(90,iniVideo->getValue("vr_tableLoweringCm",20+20*oldHeight)))/10*10;
+        video.vr.tableDistance = std::max(0, std::min(2, iniVideo->getValue("vr_table_distance", vrDefaults.tableDistance)));
+        video.vr.curvature = std::max(0, std::min(2, iniVideo->getValue("vr_curvature", vrDefaults.curvature)));
+        video.vr.swapLeftStickAxes = iniVideo->getValue("vr_swap_left_axes", vrDefaults.swapLeftStickAxes);
+        video.vr.brightness = std::max(50, std::min(150, iniVideo->getValue("vr_brightness", vrDefaults.brightness)));
+        video.vr.startDistance = std::max(0, std::min(2, iniVideo->getValue("vr_start_distance", vrDefaults.startDistance)));
+        video.vr.sharpness = std::max(-2, std::min(2, iniVideo->getValue("vr_sharpness", 0)));
+        video.vr.contrast = std::max(50, std::min(150, iniVideo->getValue("vr_contrast", vrDefaults.contrast)));
+        // };
+
+        if(video.fullscreenSize.width == 0 || video.fullscreenSize.height == 0 || video.windowedSize.width == 0
+           || video.windowedSize.height == 0)
+            throw std::runtime_error("Invalid video settings");
+
+        // language
+        // {
+        language.language = iniLanguage->getValue("language");
+        // }
+
+        LANGUAGES.setLanguage(language.language);
+
+        // driver
+        // {
+        driver.video = iniDriver->getValue("video");
+        driver.audio = iniDriver->getValue("audio");
+        // }
+
+        // sound
+        // {
+        sound.musicEnabled = iniSound->getBoolValue("musik");
+        sound.musicVolume = iniSound->getIntValue("musik_volume");
+        sound.effectsEnabled = iniSound->getBoolValue("effekte");
+        sound.effectsVolume = iniSound->getIntValue("effekte_volume");
+        sound.birdsEnabled = iniSound->getValue("bird_sounds", true);
+        sound.playlist = iniSound->getValue("playlist");
+        // }
+
+        // lobby
+        // {
+        lobby.name = iniLobby->getValue("name");
+        lobby.portraitIndex = iniLobby->getIntValue("portrait_index");
+        lobby.password = iniLobby->getValue("password");
+        lobby.savePassword = iniLobby->getBoolValue("save_password");
+        // }
+
+        if(lobby.name.empty())
+            lobby.name = System::getUserName();
+
+        if(lobby.portraitIndex >= Portraits.size())
+        {
+            lobby.portraitIndex = 0;
+        }
+
+        // server
+        // {
+        server.lastIP = iniServer->getValue("last_ip");
+        std::optional<uint16_t> port = validate::checkPort(iniServer->getValue("local_port"));
+        server.localPort = port.value_or(3665);
+        server.ipv6 = iniServer->getBoolValue("ipv6");
+        // }
+
+        // proxy
+        // {
+        proxy.hostname = iniProxy->getValue("proxy");
+        port = validate::checkPort(iniProxy->getValue("port"));
+        proxy.port = port.value_or(1080);
+        proxy.type = ProxyType(iniProxy->getIntValue("typ"));
+        // }
+
+        // Empty proxy address completely disables proxy.
+        // Disabled proxy removes proxy address.
+        if(proxy.hostname.empty() || (proxy.type != ProxyType::Socks4 && proxy.type != ProxyType::Socks5))
+        {
+            proxy.type = ProxyType::None;
+            proxy.hostname.clear();
+        }
+        // Enabled Socks v4 disables IPv6
+        else if(proxy.type == ProxyType::Socks4 && server.ipv6)
+            server.ipv6 = false;
+
+        // interface
+        // {
+        interface.autosaveInterval = iniInterface->getIntValue("autosave_interval");
+        try
+        {
+            interface.mapScrollMode = static_cast<MapScrollMode>(iniInterface->getIntValue("map_scroll_mode"));
+        } catch(const std::runtime_error&)
+        {
+            interface.mapScrollMode =
+              iniInterface->getBoolValue("invert_mouse") ? MapScrollMode::ScrollSame : MapScrollMode::ScrollOpposite;
+            s25util::warning(
+              "Value 'map_scroll_mode' not found! Using 'invert_mouse' instead - please recheck your settings!");
+        }
+        interface.enableWindowPinning = iniInterface->getValue("enable_window_pinning", false);
+        interface.windowSnapDistance = iniInterface->getValue("window_snap_distance", 8);
+        // }
+
+        // addons
+        // {
+        for(unsigned addon = 0; addon < iniAddons->size(); ++addon)
+        {
+            const auto* item = dynamic_cast<const libsiedler2::ArchivItem_Text*>(iniAddons->get(addon));
+
+            if(item)
+                addons.configuration.insert(std::make_pair(s25util::fromStringClassic<unsigned>(item->getName()),
+                                                           s25util::fromStringClassic<unsigned>(item->getText())));
+        }
+
+        LoadIngame();
+        // }
+    } catch(const std::runtime_error& e)
+    {
+        s25util::warning(std::string("Could not use settings from \"") + settingsPath.string()
+                         + "\", using default values. Reason: " + e.what());
+        LoadDefaults();
+        Save();
+    }
+}
+
+void Settings::LoadIngame()
+{
+    libsiedler2::Archiv settingsIngame;
+    const auto settingsPathIngame = RTTRCONFIG.ExpandPath(s25::resources::ingameOptions);
+    try
+    {
+        if(libsiedler2::Load(settingsPathIngame, settingsIngame) != 0)
+            throw std::runtime_error("File missing");
+
+        const libsiedler2::ArchivItem_Ini* iniIngame =
+          static_cast<libsiedler2::ArchivItem_Ini*>(settingsIngame.find("ingame"));
+        if(!iniIngame)
+            throw std::runtime_error("Missing section");
+        // ingame
+        // {
+        ingame.scaleStatistics = iniIngame->getBoolValue("scale_statistics");
+        ingame.showBQ = iniIngame->getBoolValue("show_building_quality");
+        ingame.showNames = iniIngame->getBoolValue("show_names");
+        ingame.showProductivity = iniIngame->getBoolValue("show_productivity");
+        ingame.minimapExtended = iniIngame->getBoolValue("minimap_extended");
+        // }
+        // ingame windows
+        for(const auto& window : persistentWindows)
+        {
+            const auto* iniWindow = static_cast<const libsiedler2::ArchivItem_Ini*>(settingsIngame.find(window.second));
+            if(!iniWindow)
+                continue;
+            auto& settings = windows.persistentSettings[window.first];
+            const auto lastPos = settings.lastPos =
+              DrawPoint(iniWindow->getIntValue("pos_x"), iniWindow->getIntValue("pos_y"));
+            settings.restorePos = DrawPoint(iniWindow->getValue("restore_pos_x", lastPos.x),
+                                            iniWindow->getValue("restore_pos_y", lastPos.y));
+            settings.isOpen = iniWindow->getIntValue("is_open");
+            settings.isPinned = iniWindow->getValue("is_pinned", false);
+            settings.isMinimized = iniWindow->getValue("is_minimized", false);
+        }
+    } catch(const std::runtime_error& e)
+    {
+        s25util::warning(std::string("Could not use ingame settings from \"") + settingsPathIngame.string()
+                         + "\", using default values. Reason: " + e.what());
+        LoadIngameDefaults();
+        SaveIngame();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Routine for saving the configuration
+void Settings::Save()
+{
+    libsiedler2::Archiv settings;
+    settings.alloc(SECTION_NAMES.size());
+    for(unsigned i = 0; i < SECTION_NAMES.size(); ++i)
+        settings.set(i, std::make_unique<libsiedler2::ArchivItem_Ini>(SECTION_NAMES[i]));
+
+    libsiedler2::ArchivItem_Ini* iniGlobal = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("global"));
+    libsiedler2::ArchivItem_Ini* iniVideo = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("video"));
+    libsiedler2::ArchivItem_Ini* iniLanguage = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("language"));
+    libsiedler2::ArchivItem_Ini* iniDriver = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("driver"));
+    libsiedler2::ArchivItem_Ini* iniSound = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("sound"));
+    libsiedler2::ArchivItem_Ini* iniLobby = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("lobby"));
+    libsiedler2::ArchivItem_Ini* iniServer = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("server"));
+    libsiedler2::ArchivItem_Ini* iniProxy = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("proxy"));
+    libsiedler2::ArchivItem_Ini* iniInterface = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("interface"));
+    libsiedler2::ArchivItem_Ini* iniAddons = static_cast<libsiedler2::ArchivItem_Ini*>(settings.find("addons"));
+
+    // Is one of the categories missing?
+    RTTR_Assert(iniGlobal && iniVideo && iniLanguage && iniDriver && iniSound && iniLobby && iniServer && iniProxy
+                && iniInterface && iniAddons);
+
+    // global
+    // {
+    iniGlobal->setValue("version", VERSION);
+    iniGlobal->setValue("gameversion", rttr::version::GetRevision());
+    iniGlobal->setValue("submit_debug_data", rttr::enum_cast(global.submitDebugData));
+    iniGlobal->setValue("use_upnp", global.useUPNP);
+    iniGlobal->setValue("smartCursor", global.smartCursor);
+    iniGlobal->setValue("debugMode", global.debugMode);
+    iniGlobal->setValue("showGFInfo", global.showGFInfo);
+    // };
+
+    // video
+    // {
+    iniVideo->setValue("vr_rayWidth", video.vr.rayWidth);
+    iniVideo->setValue("vr_rayColor", video.vr.rayColor);
+    iniVideo->setValue("vr_markerShape", video.vr.markerShape);
+    iniVideo->setValue("vr_markerSize", video.vr.markerSize);
+    iniVideo->setValue("vr_cursorSize", video.vr.cursorSize);
+    iniVideo->setValue("vr_rayVisible", video.vr.rayVisible);
+    iniVideo->setValue("vr_markerVisible", video.vr.markerVisible);
+    iniVideo->setValue("vr_ptrOffsetX", video.vr.ptrOffsetX);
+    iniVideo->setValue("vr_ptrOffsetY", video.vr.ptrOffsetY);
+    iniVideo->setValue("vr_panelControl", video.vr.panelControl);
+    iniVideo->setValue("vr_mapSpeed", video.vr.mapSpeed);
+    iniVideo->setValue("vr_mapBoost", video.vr.mapBoost);
+    iniVideo->setValue("vr_screenDistanceMm", video.vr.screenDistanceMm);
+    iniVideo->setValue("vr_tableDistanceMm", video.vr.tableDistanceMm);
+    iniVideo->setValue("vr_invertLeftX", video.vr.invertLeftX);
+    iniVideo->setValue("vr_invertLeftY", video.vr.invertLeftY);
+    iniVideo->setValue("vr_invertRightX", video.vr.invertRightX);
+    iniVideo->setValue("vr_swapRightStickAxes", video.vr.swapRightStickAxes);
+    iniVideo->setValue("vr_passthrough",video.vr.passthrough);
+    iniVideo->setValue("vr_passthroughPercent",video.vr.passthroughPercent);
+    iniVideo->setValue("vr_buildingHelpSite", video.vr.buildingHelpSite);
+    iniVideo->setValue("vr_headquarters3d_beta", video.vr.headquarters3d);
+    iniVideo->setValue("vr_frameMove", video.vr.frameMove);
+    iniVideo->setValue("vr_invertRightY", video.vr.invertRightY);
+    iniVideo->setValue("vr_startCentered", video.vr.startCentered);
+    iniVideo->setValue("vr_rememberDistance", video.vr.rememberDistance);
+    iniVideo->setValue("vr_automaticSaveName", video.vr.automaticSaveName);
+    iniVideo->setValue("vr_presentation", video.vr.presentation);
+    iniVideo->setValue("vr_table_tilt", video.vr.tableTilt);
+    iniVideo->setValue("vr_tableLoweringCm", video.vr.tableLoweringCm);
+    iniVideo->setValue("vr_table_distance", video.vr.tableDistance);
+    iniVideo->setValue("vr_curvature", video.vr.curvature);
+    iniVideo->setValue("vr_swap_left_axes", video.vr.swapLeftStickAxes);
+    iniVideo->setValue("vr_brightness", video.vr.brightness);
+    iniVideo->setValue("vr_contrast", video.vr.contrast);
+    iniVideo->setValue("vr_sharpness", video.vr.sharpness);
+    iniVideo->setValue("vr_start_distance", video.vr.startDistance);
+    iniVideo->setValue("vr_hoverHighlight",video.vr.hoverHighlight);
+    iniVideo->setValue("vr_clickStabilization",video.vr.clickStabilization);
+    iniVideo->setValue("vr_smartScroll",video.vr.smartScroll);
+    iniVideo->setValue("vr_triggerGrab",video.vr.triggerGrab);
+    iniVideo->setValue("vr_gripScrollSpeed",video.vr.gripScrollSpeed);
+    iniVideo->setValue("vr_realTable",video.vr.realTable);
+    iniVideo->setValue("vr_smoothing", video.vr.smoothing);
+    iniVideo->setValue("vr_panelWidthMm", video.vr.panelWidthMm);
+    iniVideo->setValue("vr_panelXmm", video.vr.panelXmm);
+    iniVideo->setValue("vr_panelYmm", video.vr.panelYmm);
+    iniVideo->setValue("vr_panelZmm", video.vr.panelZmm);
+    iniVideo->setValue("vr_panelYawMilli", video.vr.panelYawMilli);
+    iniVideo->setValue("vr_haptics", video.vr.haptics);
+    iniVideo->setValue("vr_leftHanded", video.vr.leftHanded);
+    iniVideo->setValue("vr_autoPause", video.vr.autoPause);
+    iniVideo->setValue("vr_rememberPanel", video.vr.rememberPanel);
+    for(unsigned i = 0; i < video.vr.buttons.size(); ++i) iniVideo->setValue("vr_buttons_" + std::to_string(i), video.vr.buttons[i]);
+    for(unsigned i = 0; i < video.vr.longButtons.size(); ++i) iniVideo->setValue("vr_longButtons_" + std::to_string(i), video.vr.longButtons[i]);
+    for(unsigned i = 0; i < video.vr.favorites.size(); ++i) iniVideo->setValue("vr_favorites_" + std::to_string(i), video.vr.favorites[i]);
+
+    iniVideo->setValue("fullscreen_width", video.fullscreenSize.width);
+    iniVideo->setValue("fullscreen_height", video.fullscreenSize.height);
+    iniVideo->setValue("windowed_width", video.windowedSize.width);
+    iniVideo->setValue("windowed_height", video.windowedSize.height);
+    iniVideo->setValue("displayMode", rttr::enum_cast(video.displayMode.type));
+    iniVideo->setValue("lock_window_size", !video.displayMode.resizeable);
+    iniVideo->setValue("framerate", video.framerate);
+    iniVideo->setValue("vbo", video.vbo);
+    iniVideo->setValue("shared_textures", video.sharedTextures);
+    iniVideo->setValue("gui_scale", video.guiScale);
+    // Do not persist an unconfirmed display mode, even if the app exits during the countdown.
+    if(const auto& backup = VIDEODRIVER.GetVrResolutionBackup())
+    {
+        iniVideo->setValue("windowed_width",backup->size.width);
+        iniVideo->setValue("windowed_height",backup->size.height);
+        iniVideo->setValue("fullscreen_width",backup->size.width);
+        iniVideo->setValue("fullscreen_height",backup->size.height);
+        iniVideo->setValue("displayMode",rttr::enum_cast(backup->mode.type));
+        iniVideo->setValue("gui_scale",backup->gui);
+    }
+    // };
+
+    // language
+    // {
+    iniLanguage->setValue("language", language.language);
+    // }
+
+    // driver
+    // {
+    iniDriver->setValue("video", driver.video);
+    iniDriver->setValue("audio", driver.audio);
+    // }
+
+    // sound
+    // {
+    iniSound->setValue("musik", sound.musicEnabled);
+    iniSound->setValue("musik_volume", sound.musicVolume);
+    iniSound->setValue("effekte", sound.effectsEnabled);
+    iniSound->setValue("effekte_volume", sound.effectsVolume);
+    iniSound->setValue("bird_sounds", sound.birdsEnabled);
+    iniSound->setValue("playlist", sound.playlist);
+    // }
+
+    // lobby
+    // {
+    iniLobby->setValue("name", lobby.name);
+    iniLobby->setValue("portrait_index", lobby.portraitIndex);
+    iniLobby->setValue("password", lobby.password);
+    iniLobby->setValue("save_password", lobby.savePassword);
+    // }
+
+    // server
+    // {
+    iniServer->setValue("last_ip", server.lastIP);
+    iniServer->setValue("local_port", server.localPort);
+    iniServer->setValue("ipv6", server.ipv6);
+    // }
+
+    // proxy
+    // {
+    iniProxy->setValue("proxy", proxy.hostname);
+    iniProxy->setValue("port", proxy.port);
+    iniProxy->setValue("typ", static_cast<int>(proxy.type));
+    // }
+
+    // interface
+    // {
+    iniInterface->setValue("autosave_interval", interface.autosaveInterval);
+    iniInterface->setValue("map_scroll_mode", static_cast<int>(interface.mapScrollMode));
+    iniInterface->setValue("enable_window_pinning", interface.enableWindowPinning);
+    iniInterface->setValue("window_snap_distance", interface.windowSnapDistance);
+    // }
+
+    // addons
+    // {
+    iniAddons->clear();
+    for(const auto& it : addons.configuration)
+        iniAddons->setValue(s25util::toStringClassic(it.first), s25util::toStringClassic(it.second));
+    // }
+
+    bfs::path settingsPath = RTTRCONFIG.ExpandPath(s25::resources::config);
+    if(libsiedler2::Write(settingsPath, settings) == 0)
+        bfs::permissions(settingsPath, bfs::owner_read | bfs::owner_write);
+
+    SaveIngame();
+}
+
+void Settings::SaveIngame()
+{
+    libsiedler2::Archiv settingsIngame;
+    settingsIngame.alloc(1 + persistentWindows.size());
+    settingsIngame.set(0, std::make_unique<libsiedler2::ArchivItem_Ini>("ingame"));
+    unsigned i = 1;
+    for(const auto& window : persistentWindows)
+    {
+        settingsIngame.set(i, std::make_unique<libsiedler2::ArchivItem_Ini>(window.second));
+        i++;
+    }
+
+    auto* iniIngame = static_cast<libsiedler2::ArchivItem_Ini*>(settingsIngame.find("ingame"));
+
+    RTTR_Assert(iniIngame);
+
+    // ingame
+    // {
+    iniIngame->setValue("scale_statistics", ingame.scaleStatistics);
+    iniIngame->setValue("show_building_quality", ingame.showBQ);
+    iniIngame->setValue("show_names", ingame.showNames);
+    iniIngame->setValue("show_productivity", ingame.showProductivity);
+    iniIngame->setValue("minimap_extended", ingame.minimapExtended);
+    // }
+
+    // ingame windows
+    for(const auto& window : persistentWindows)
+    {
+        auto* iniWindow = static_cast<libsiedler2::ArchivItem_Ini*>(settingsIngame.find(window.second));
+        if(!iniWindow)
+            continue;
+        const auto& settings = windows.persistentSettings[window.first];
+        iniWindow->setValue("pos_x", settings.lastPos.x);
+        iniWindow->setValue("pos_y", settings.lastPos.y);
+        if(settings.restorePos != settings.lastPos)
+        {
+            // only save if different; defaults to lastPos on load
+            iniWindow->setValue("restore_pos_x", settings.restorePos.x);
+            iniWindow->setValue("restore_pos_y", settings.restorePos.y);
+        }
+        iniWindow->setValue("is_open", settings.isOpen);
+        iniWindow->setValue("is_pinned", settings.isPinned);
+        iniWindow->setValue("is_minimized", settings.isMinimized);
+    }
+
+    bfs::path settingsPathIngame = RTTRCONFIG.ExpandPath(s25::resources::ingameOptions);
+    if(libsiedler2::Write(settingsPathIngame, settingsIngame) == 0)
+        bfs::permissions(settingsPathIngame, bfs::owner_read | bfs::owner_write);
+}

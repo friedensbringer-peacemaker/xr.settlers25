@@ -1,0 +1,458 @@
+{
+  "snapshots": [
+    {
+      "path": "android",
+      "source": "https://github.com/Farmer-Markus/s25rttr-android.git",
+      "commit": "35ef6302c69848a63a7bde0ef4af1a935ada00d1",
+      "note": "Tracked working-tree snapshot, including Quest changes; no upstream git history."
+    },
+    {
+      "path": "android/app/jni/s25client",
+      "source": "https://github.com/Return-To-The-Roots/s25client",
+      "commit": "a0b85fbf352b354f003a24a98e73390c17bc7f88",
+      "note": "Tracked working-tree snapshot, including Quest changes; no upstream git history."
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "android/app/jni/s25client/data/RTTR/MAPS",
+      "url": "https://github.com/Return-To-The-Roots/s25maps.git",
+      "commit": "dfb9923753678ed58573855ba579db3f238caca7"
+    },
+    {
+      "path": "android/app/jni/s25client/external/dev-tools",
+      "url": "https://github.com/Return-To-The-Roots/dev-tools.git",
+      "commit": "c2906b9bdc807440404839dc641f907b97400618"
+    },
+    {
+      "path": "android/app/jni/s25client/external/kaguya",
+      "url": "https://github.com/Return-To-The-Roots/kaguya.git",
+      "commit": "666d4603d5b70424e8756a5dac05f9abb81ddade"
+    },
+    {
+      "path": "android/app/jni/s25client/external/languages",
+      "url": "https://github.com/Return-To-The-Roots/languages.git",
+      "commit": "d3dbcae0ab1d74799b5357a3ae816088ac23c460"
+    },
+    {
+      "path": "android/app/jni/s25client/external/libendian",
+      "url": "https://github.com/Return-To-The-Roots/libendian.git",
+      "commit": "aa5e0317176f472b4574d26631e0c0ea031bbedf"
+    },
+    {
+      "path": "android/app/jni/s25client/external/liblobby",
+      "url": "https://github.com/Return-To-The-Roots/liblobby.git",
+      "commit": "32404f61c48093605d1a7f9b2a472b1302f50bcb"
+    },
+    {
+      "path": "android/app/jni/s25client/external/libsiedler2",
+      "url": "https://github.com/Return-To-The-Roots/libsiedler2.git",
+      "commit": "5a2deccc752755001c45b6a5ed12f8ec02de90a5"
+    },
+    {
+      "path": "android/app/jni/s25client/external/libutil",
+      "url": "https://github.com/Return-To-The-Roots/libutil.git",
+      "commit": "48b813d04b8651b9d9bca7472b03df2e35719bf5"
+    },
+    {
+      "path": "android/app/jni/s25client/external/mygettext",
+      "url": "https://github.com/Return-To-The-Roots/mygettext.git",
+      "commit": "e7ccc955cfa7246da487232d81047dc2dea7f1a6"
+    },
+    {
+      "path": "android/app/jni/s25client/external/s25edit",
+      "url": "https://github.com/Return-To-The-Roots/s25edit.git",
+      "commit": "1ff58f353cf875d26a3279d46543cc33f365df3f"
+    },
+    {
+      "path": "android/app/jni/s25client/external/s25update",
+      "url": "https://github.com/Return-To-The-Roots/s25update.git",
+      "commit": "5f26a263b883871c80a95c03221b3b082f9738ab"
+    },
+    {
+      "path": "android/app/jni/s25client/external/turtle",
+      "url": "https://github.com/mat007/turtle.git",
+      "commit": "e27ccfa8b4b9be0a54e0611e1a6e6e79b78955b4"
+    },
+    {
+      "path": "android/external/SDL",
+      "url": "https://github.com/libsdl-org/SDL",
+      "commit": "272b0733237555c749bc6dd82a8dd0211ab2e22d"
+    },
+    {
+      "path": "android/external/SDL_mixer",
+      "url": "https://github.com/libsdl-org/SDL_mixer",
+      "commit": "d3b4d9cf9cae405ef3e0c15e5203f3aa14657c67"
+    },
+    {
+      "path": "android/external/boost/algorithm",
+      "url": "https://github.com/boostorg/algorithm",
+      "commit": "32c5a6327cfdca5d41ce0f1d8849b811886daa2f"
+    },
+    {
+      "path": "android/external/boost/align",
+      "url": "https://github.com/boostorg/align",
+      "commit": "5ad7df63cd792fbdb801d600b93cad1a432f0151"
+    },
+    {
+      "path": "android/external/boost/any",
+      "url": "https://github.com/boostorg/any",
+      "commit": "aee53090c04bd0a263480fae25fddddcef54ca82"
+    },
+    {
+      "path": "android/external/boost/array",
+      "url": "https://github.com/boostorg/array",
+      "commit": "23f6b27c0d9916b9932baac898ae3009817a9153"
+    },
+    {
+      "path": "android/external/boost/assert",
+      "url": "https://github.com/boostorg/assert",
+      "commit": "447e0b3a331930f8708ade0e42683d12de9dfbc3"
+    },
+    {
+      "path": "android/external/boost/atomic",
+      "url": "https://github.com/boostorg/atomic",
+      "commit": "5bbcce0f6e855dc4009e2e6977c62e0520c39573"
+    },
+    {
+      "path": "android/external/boost/bind",
+      "url": "https://github.com/boostorg/bind",
+      "commit": "9fbfdcb3577e9427815d4f8cc25b3a25d5b9696b"
+    },
+    {
+      "path": "android/external/boost/chrono",
+      "url": "https://github.com/boostorg/chrono",
+      "commit": "ee0d6d543a37d9b7243682549e9ae359eb89daa9"
+    },
+    {
+      "path": "android/external/boost/circular_buffer",
+      "url": "https://github.com/boostorg/circular_buffer",
+      "commit": "a08a5b55ee82e0c2487523471379ac53a23935dc"
+    },
+    {
+      "path": "android/external/boost/concept_check",
+      "url": "https://github.com/boostorg/concept_check",
+      "commit": "37c9bddf0bdefaaae0ca5852c1a153d9fc43f278"
+    },
+    {
+      "path": "android/external/boost/config",
+      "url": "https://github.com/boostorg/config",
+      "commit": "11385ec21012926e15a612e3bf9f9a71403c1e5b"
+    },
+    {
+      "path": "android/external/boost/container",
+      "url": "https://github.com/boostorg/container",
+      "commit": "6e697d796897b32b471b4f0740dcaa03d8ee57cc"
+    },
+    {
+      "path": "android/external/boost/container_hash",
+      "url": "https://github.com/boostorg/container_hash",
+      "commit": "6d214eb776456bf17fbee20780a034a23438084f"
+    },
+    {
+      "path": "android/external/boost/conversion",
+      "url": "https://github.com/boostorg/conversion",
+      "commit": "9f285ef0c43c101e49b37bf5e6085e8d635887dc"
+    },
+    {
+      "path": "android/external/boost/core",
+      "url": "https://github.com/boostorg/core",
+      "commit": "083b41c17e34f1fc9b43ab796b40d0d8bece685c"
+    },
+    {
+      "path": "android/external/boost/date_time",
+      "url": "https://github.com/boostorg/date_time",
+      "commit": "85e637cb325208c2af9af791c3a1948b4888c6cd"
+    },
+    {
+      "path": "android/external/boost/describe",
+      "url": "https://github.com/boostorg/describe",
+      "commit": "50719b212349f3d1268285c586331584d3dbfeb5"
+    },
+    {
+      "path": "android/external/boost/detail",
+      "url": "https://github.com/boostorg/detail",
+      "commit": "9c3a0022b25d3e483f9100cc363bc93a72fd900a"
+    },
+    {
+      "path": "android/external/boost/dll",
+      "url": "https://github.com/boostorg/dll",
+      "commit": "6c60dde50bf67138c90cc84938111866813feaff"
+    },
+    {
+      "path": "android/external/boost/dynamic_bitset",
+      "url": "https://github.com/boostorg/dynamic_bitset",
+      "commit": "8e20aa1462bf6dcadc338835df529a6d568431b1"
+    },
+    {
+      "path": "android/external/boost/endian",
+      "url": "https://github.com/boostorg/endian",
+      "commit": "c9b436e5dfce85e8ae365e5aabbb872dd35c29eb"
+    },
+    {
+      "path": "android/external/boost/exception",
+      "url": "https://github.com/boostorg/exception",
+      "commit": "b9170a02f102250b308c9f94ed6593c5f30eab39"
+    },
+    {
+      "path": "android/external/boost/filesystem",
+      "url": "https://github.com/boostorg/filesystem",
+      "commit": "a0c8edba38a4d31b449fcf7b7ada455977342596"
+    },
+    {
+      "path": "android/external/boost/format",
+      "url": "https://github.com/boostorg/format",
+      "commit": "78ef371d2d90462671b90c3af407fae07820b193"
+    },
+    {
+      "path": "android/external/boost/function",
+      "url": "https://github.com/boostorg/function",
+      "commit": "28b88d07bb4807445462c3f5dab0efde6f532d32"
+    },
+    {
+      "path": "android/external/boost/function_types",
+      "url": "https://github.com/boostorg/function_types",
+      "commit": "895335874d67987ada0d8bf6ca1725e70642ed49"
+    },
+    {
+      "path": "android/external/boost/functional",
+      "url": "https://github.com/boostorg/functional",
+      "commit": "6a573e4b8333ee63ee62ce95558c3667348db233"
+    },
+    {
+      "path": "android/external/boost/fusion",
+      "url": "https://github.com/boostorg/fusion",
+      "commit": "7d4c03fa032299f2d46149b7b3136c9fd43e4f81"
+    },
+    {
+      "path": "android/external/boost/integer",
+      "url": "https://github.com/boostorg/integer",
+      "commit": "dea8e3445dc3ca29201498260307138b9460a70c"
+    },
+    {
+      "path": "android/external/boost/interprocess",
+      "url": "https://github.com/boostorg/interprocess",
+      "commit": "8e4caa9fca8ff92b739b570f399f4407da0ecc2f"
+    },
+    {
+      "path": "android/external/boost/intrusive",
+      "url": "https://github.com/boostorg/intrusive",
+      "commit": "07ba0e376177409c396c109807c13b7181a98ebe"
+    },
+    {
+      "path": "android/external/boost/io",
+      "url": "https://github.com/boostorg/io",
+      "commit": "342e4c6d10d586058818daa84201a2d301357a53"
+    },
+    {
+      "path": "android/external/boost/iostreams",
+      "url": "https://github.com/boostorg/iostreams",
+      "commit": "6be38c3449a64b15213c6a490d357c9a2ac2470b"
+    },
+    {
+      "path": "android/external/boost/iterator",
+      "url": "https://github.com/boostorg/iterator",
+      "commit": "4f7219965a399051bb0d8088ea4ab3929b1ac3f2"
+    },
+    {
+      "path": "android/external/boost/lexical_cast",
+      "url": "https://github.com/boostorg/lexical_cast",
+      "commit": "02e5821ab32c45fad719829e9644e5d681c9ba0b"
+    },
+    {
+      "path": "android/external/boost/locale",
+      "url": "https://github.com/boostorg/locale",
+      "commit": "5edb7eb4f4848546d3d285598374b5d37daae387"
+    },
+    {
+      "path": "android/external/boost/move",
+      "url": "https://github.com/boostorg/move",
+      "commit": "7c01072629d83a7b54c99de70ef535d699ebd200"
+    },
+    {
+      "path": "android/external/boost/mp11",
+      "url": "https://github.com/boostorg/mp11",
+      "commit": "863d8b8d2b20f2acd0b5870f23e553df9ce90e6c"
+    },
+    {
+      "path": "android/external/boost/mpl",
+      "url": "https://github.com/boostorg/mpl",
+      "commit": "b440c45c2810acbddc917db057f2e5194da1a199"
+    },
+    {
+      "path": "android/external/boost/nowide",
+      "url": "https://github.com/boostorg/nowide",
+      "commit": "72429c3f48a1e70c08b5bd922ddebf7acddcbfb4"
+    },
+    {
+      "path": "android/external/boost/numeric_conversion",
+      "url": "https://github.com/boostorg/numeric_conversion",
+      "commit": "50a1eae942effb0a9b90724323ef8f2a67e7984a"
+    },
+    {
+      "path": "android/external/boost/optional",
+      "url": "https://github.com/boostorg/optional",
+      "commit": "c60db27762ff9cc16529e069c3c15f2fa898f994"
+    },
+    {
+      "path": "android/external/boost/parameter",
+      "url": "https://github.com/boostorg/parameter",
+      "commit": "c07f2b8d37ded87f6f9d5bac867550f6e61282c1"
+    },
+    {
+      "path": "android/external/boost/predef",
+      "url": "https://github.com/boostorg/predef",
+      "commit": "0fdfb49c3a6789e50169a44e88a07cc889001106"
+    },
+    {
+      "path": "android/external/boost/preprocessor",
+      "url": "https://github.com/boostorg/preprocessor",
+      "commit": "c4ea7e40d365ba28faecef8917d5c3f1e0121bf9"
+    },
+    {
+      "path": "android/external/boost/program_options",
+      "url": "https://github.com/boostorg/program_options",
+      "commit": "27f927694547277f845ae855e80b96be252f826c"
+    },
+    {
+      "path": "android/external/boost/ptr_container",
+      "url": "https://github.com/boostorg/ptr_container",
+      "commit": "cf94735c87e073b33e54887a3d5e33598177ee1a"
+    },
+    {
+      "path": "android/external/boost/random",
+      "url": "https://github.com/boostorg/random",
+      "commit": "09594050246adcf944be2b2c8dd2b9901083de79"
+    },
+    {
+      "path": "android/external/boost/range",
+      "url": "https://github.com/boostorg/range",
+      "commit": "2bb6b636796f7b008196888613f51f5bb347c77d"
+    },
+    {
+      "path": "android/external/boost/ratio",
+      "url": "https://github.com/boostorg/ratio",
+      "commit": "d5b33caa7d564be9be6d962b18659b7741d764ac"
+    },
+    {
+      "path": "android/external/boost/regex",
+      "url": "https://github.com/boostorg/regex",
+      "commit": "4cbcd3078e6ae10d05124379623a1bf03fcb9350"
+    },
+    {
+      "path": "android/external/boost/scope",
+      "url": "https://github.com/boostorg/scope",
+      "commit": "8321450aca6fc6a075225ba225036e585ce1716b"
+    },
+    {
+      "path": "android/external/boost/signals2",
+      "url": "https://github.com/boostorg/signals2",
+      "commit": "4d994bbed820882059c7842ba5e230a26d68f2f0"
+    },
+    {
+      "path": "android/external/boost/smart_ptr",
+      "url": "https://github.com/boostorg/smart_ptr",
+      "commit": "3ef8cfd02f9cb3e0486c26f35ed4c27c6f26bd5f"
+    },
+    {
+      "path": "android/external/boost/static_assert",
+      "url": "https://github.com/boostorg/static_assert",
+      "commit": "ba72d3340f3dc6e773868107f35902292f84b07e"
+    },
+    {
+      "path": "android/external/boost/system",
+      "url": "https://github.com/boostorg/system",
+      "commit": "2fc720a1cbe51d588fecc4e0af9417bd769381d8"
+    },
+    {
+      "path": "android/external/boost/test",
+      "url": "https://github.com/boostorg/test",
+      "commit": "822dc24718a33316bcef78b08f6bf57ae20d9335"
+    },
+    {
+      "path": "android/external/boost/thread",
+      "url": "https://github.com/boostorg/thread",
+      "commit": "aec18d337f41d8e3081ee65f5cf3b5090179ab0e"
+    },
+    {
+      "path": "android/external/boost/throw_exception",
+      "url": "https://github.com/boostorg/throw_exception",
+      "commit": "7c8ec2114bc1f9ab2a8afbd629b96fbdd5901294"
+    },
+    {
+      "path": "android/external/boost/tokenizer",
+      "url": "https://github.com/boostorg/tokenizer",
+      "commit": "90106f155bd72b62aaca0d9ad826f4132030dba0"
+    },
+    {
+      "path": "android/external/boost/tuple",
+      "url": "https://github.com/boostorg/tuple",
+      "commit": "b67941dd7d03536a854b96f001954792311ab515"
+    },
+    {
+      "path": "android/external/boost/type_index",
+      "url": "https://github.com/boostorg/type_index",
+      "commit": "e37bc99e85e85bcac420ac1d4c1a8a5bca280d47"
+    },
+    {
+      "path": "android/external/boost/type_traits",
+      "url": "https://github.com/boostorg/type_traits",
+      "commit": "cc6fc3daa8e20c4a70b563d67ceb4c34d8c1c4d7"
+    },
+    {
+      "path": "android/external/boost/typeof",
+      "url": "https://github.com/boostorg/typeof",
+      "commit": "4bc9de322cd44373435540d4e6c8f207892fc9a0"
+    },
+    {
+      "path": "android/external/boost/unordered",
+      "url": "https://github.com/boostorg/unordered",
+      "commit": "5e6b9291deb55567d41416af1e77c2516dc1250f"
+    },
+    {
+      "path": "android/external/boost/utility",
+      "url": "https://github.com/boostorg/utility",
+      "commit": "e0ecf927643b13c63dfd9a38741315ea8b845135"
+    },
+    {
+      "path": "android/external/boost/variant",
+      "url": "https://github.com/boostorg/variant",
+      "commit": "b33ff4f811a27d4dc4a4c8a840310523de4df4f8"
+    },
+    {
+      "path": "android/external/boost/variant2",
+      "url": "https://github.com/boostorg/variant2",
+      "commit": "ff36c3aa1f82d1d9a55fd006dd47cf380fc517c0"
+    },
+    {
+      "path": "android/external/boost/winapi",
+      "url": "https://github.com/boostorg/winapi",
+      "commit": "39396bd78254053f3137510478e8f956bd2b83d4"
+    },
+    {
+      "path": "android/external/bzip2",
+      "url": "https://gitlab.com/bzip2/bzip2",
+      "commit": "66c46b8c9436613fd81bc5d03f63a61933a4dcc3"
+    },
+    {
+      "path": "android/external/gl4es",
+      "url": "https://github.com/ptitSeb/gl4es",
+      "commit": "e4cb73c00bfb0464e312d99becae99d1a4167325"
+    },
+    {
+      "path": "android/external/lua/lua",
+      "url": "https://github.com/lua/lua",
+      "commit": "3c55790ebee7148281cd00f44aa293e456b4da6d"
+    },
+    {
+      "path": "android/external/miniupnpc",
+      "url": "https://github.com/transmission/miniupnpc",
+      "commit": "0d6482516169b004a3f8f5c5f8744da5822568d9"
+    },
+    {
+      "path": "third_party/openxr-sdk-source",
+      "url": "https://github.com/KhronosGroup/OpenXR-SDK-Source.git",
+      "commit": "3ed64d0f9bb680f24b80a085091e5c8fab38f7b7"
+    }
+  ]
+}

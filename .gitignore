@@ -1,0 +1,18 @@
+# Local proprietary data and user state
+/original-data/
+/Artifacts/
+/savegames/
+/backups/
+*.log
+*.apk
+*.aab
+*.jks
+*.keystore
+.env
+.env.*
+local.properties
+/.build/
+/.toolchains/
+.DS_Store
+/android/app/src/main/jniLibs/
+__pycache__/

@@ -1,0 +1,284 @@
+import java.security.MessageDigest
+
+def questVersion = new Properties()
+file("${rootDir}/../version.properties").withInputStream { questVersion.load(it) }
+def questVersionCode = questVersion.getProperty("versionCode").toInteger()
+def questVersionName = questVersion.getProperty("versionName")
+if (questVersionCode < 1 || !questVersionName?.trim()) {
+     throw new GradleException("Invalid version.properties")
+}
+
+
+def buildAsLibrary = project.hasProperty('BUILD_AS_LIBRARY');
+def buildAsApplication = !buildAsLibrary
+if (buildAsApplication) {
+    apply plugin: 'com.android.application'
+}
+else {
+    apply plugin: 'com.android.library'
+}
+
+android {
+    if (buildAsApplication) {
+        namespace "org.s25rttr.sdl"
+    }
+    
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+    
+    ndkVersion "27.0.12077973"
+    compileSdkVersion 36
+    defaultConfig {
+        archivesBaseName = "xr.rttr-Quest"
+    	applicationId "xr.rttr"
+        minSdkVersion 28 // 19
+        targetSdkVersion 34
+        versionCode questVersionCode
+        versionName questVersionName
+        externalNativeBuild {
+             cmake {
+                 arguments "-DANDROID_APP_PLATFORM=android-28", "-DANDROID_STL=c++_shared"
+                 //abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+                 abiFilters 'arm64-v8a'
+             }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = variant.buildType.name == 'debug' ? 'xr.rttr-Quest.apk' : "xr.rttr-Quest-${variant.name}.apk"
+        }
+        tasks[("merge${variant.name.capitalize()}Assets")]
+            .dependsOn("externalNativeBuild${variant.name.capitalize()}")
+
+        tasks[("externalNativeBuild${variant.name.capitalize()}")]
+            .dependsOn(["buildDependencies", "genAssetHashes"])
+    }
+    if (!project.hasProperty('EXCLUDE_NATIVE_LIBS')) {
+        sourceSets.main {
+            jniLibs.srcDir 'libs'
+        }
+        externalNativeBuild {
+            cmake {
+                path 'jni/CMakeLists.txt'
+                version '3.22.1'
+            }
+        }
+       
+    }
+    lint {
+        abortOnError false
+    }
+
+    if (project.hasProperty("RELEASE_STORE_FILE") &&
+        project.hasProperty("RELEASE_STORE_PASSWORD") &&
+        project.hasProperty("RELEASE_KEY_ALIAS") &&
+        project.hasProperty("RELEASE_KEY_PASSWORD")) {
+        signingConfigs {
+
+            release {
+            storeFile file(RELEASE_STORE_FILE)
+            storePassword RELEASE_STORE_PASSWORD
+            keyAlias RELEASE_KEY_ALIAS
+            keyPassword RELEASE_KEY_PASSWORD
+
+            v1SigningEnabled true
+            v2SigningEnabled true
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if(project.hasProperty("RELEASE_STORE_FILE")) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig null
+            }
+        }
+    }
+    
+    sourceSets {
+        main {
+            def depInst = "$rootDir/libs"
+            jniLibs.srcDirs = [
+                "$depInst/SDL",
+                "$depInst/SDL_mixer",
+                "$depInst/miniupnpc",
+                "$depInst/lua",
+                "$depInst/gl4es",
+                "$depInst/bzip2",
+                "$depInst/boost",
+                "$projectDir/src/main/jniLibs" // vorgebauter OpenXR-Loader (ARM64)
+            ]
+        }
+    }
+}
+
+boolean CheckDependencyAbi(depInst, abi) {
+    def boostLibs = [
+        "libboost_atomic.so",
+        "libboost_chrono.so",
+        "libboost_container.so",
+        "libboost_date_time.so",
+        "libboost_filesystem.so",
+        "libboost_iostreams.so",
+        "libboost_locale.so",
+        "libboost_nowide.so",
+        "libboost_prg_exec_monitor.so",
+        "libboost_program_options.so",
+        "libboost_random.so",
+        "libboost_regex.so",
+        "libboost_thread.so",
+        "libboost_unit_test_framework.so"
+    ]
+
+    // Every lib present?
+    return  file("$depInst/SDL/$abi/libSDL2.so").exists() &&
+            file("$depInst/SDL_mixer/$abi/libSDL2_mixer.so").exists() &&
+            file("$depInst/miniupnpc/$abi/libminiupnpc.so").exists() &&
+            file("$depInst/lua/$abi/liblua.so").exists() &&
+            file("$depInst/gl4es/$abi/libGL.so").exists() &&
+            file("$depInst/bzip2/$abi/libbz2.so").exists() &&
+            boostLibs.every { lib ->
+                file("$depInst/boost/$abi/$lib").exists()
+            }
+}
+
+tasks.register("buildDependencies") {
+    def sdkDir = android.sdkDirectory
+    def ndkDir = android.ndkDirectory
+
+    def abis = android.defaultConfig.externalNativeBuild.cmake.abiFilters
+    def depSrc = "$rootDir/external"
+    def depInst = "$rootDir/libs"
+    
+    println "Checking dependencies!"
+
+    def buildAbis = []
+    abis.each { abi ->
+        if(!CheckDependencyAbi(depInst, abi))
+            buildAbis.add(abi);
+    }
+
+    onlyIf {
+        buildAbis.size() > 0;
+    }
+
+    doLast {
+        println "Building dependencies!"
+        
+        def cmakeDir = file("$sdkDir/cmake").listFiles()?.findAll { it.isDirectory() }?.sort()?.last()
+        if (cmakeDir == null) {
+            throw new GradleException("Cmake not found! Please install android cmake for your sdk!")
+        }
+        def cmake = "$cmakeDir/bin/cmake"
+
+        println "Using CMake: $cmake"
+
+        if(!file(ndkDir).exists()) {
+            throw new GradleException("NDK Root not found! Please install android ndk and set the ANDROID_SDK_ROOT and ANDROID_NDK_ROOT enviroment variables to the installation.")
+        }
+
+        buildAbis.each { abi ->
+            def buildDir = ".cxx/depBuild/$abi"
+
+            exec {
+                commandLine( cmake,
+                    "-S", depSrc,
+                    "-B", buildDir,
+                    "-DCMAKE_TOOLCHAIN_FILE=$ndkDir/build/cmake/android.toolchain.cmake",
+                    "-DANDROID_ABI=$abi",
+                    "-DANDROID_PLATFORM=android-28",
+                    "-DCMAKE_BUILD_TYPE=Release",
+                    "-DCMAKE_MAKE_PROGRAM=$cmakeDir/bin/ninja", "-G", "Ninja")
+            }
+
+            exec {
+                workingDir(buildDir)
+                commandLine( cmake, "--build", ".", "--parallel", "4")
+            }
+        }
+    }
+}
+
+// Same as in Filesystem::FileGenSha256
+static def FileGenSha256(File file) {
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    file.eachByte(256) {buffer, bytesRead ->
+        digest.update(buffer,0, bytesRead);
+    }
+    return Base64.encoder.encodeToString(digest.digest());
+}
+
+static def WriteAssetHashes(fileList, File hashFile) {
+    hashFile.withWriter { writer ->
+        fileList.each { pair ->
+            writer.writeLine("${pair.hash} ${pair.path}")
+        }
+    }
+}
+
+tasks.register("genAssetHashes") {
+    def assetDir = "$rootDir/app/src/main/assets/RTTR"
+    def hashFile = file("$rootDir/app/src/main/assets/assetHashes")
+
+    def files = []
+
+    doLast {
+        // Generate hashes for every asset
+        fileTree(assetDir).visit { FileVisitDetails details ->
+            if(!details.isDirectory())
+                files << [hash: FileGenSha256(details.getFile()), path: details.getRelativePath()]
+        }
+
+        WriteAssetHashes(files, hashFile);
+    }
+}
+
+// Clean up dependency build files but NOT compiled dependency libs!!
+tasks.register("cleanDependencyBuild") {
+    doLast {
+        def buildDir = file("$rootDir/app/.cxx/depBuild")
+
+        if(buildDir.exists())
+            buildDir.deleteDir();
+    }
+}
+
+tasks.register("cleanRttrAssets") {
+    doLast {
+        def assetDir = file("$rootDir/app/src/main/assets/RTTR")
+        if(assetDir.exists())
+            assetDir.deleteDir();
+
+        def hashFile = file("$rootDir/app/src/main/assets/assetHashes")
+        if(hashFile.exists())
+            hashFile.delete();
+    }
+}
+
+// Use clean command to also clean dependencies & copied assets
+tasks.named("clean").configure {
+    dependsOn(["cleanDependencyBuild", "cleanRttrAssets"])
+}
+
+afterEvaluate {
+    tasks.matching { it.name.startsWith("configureCMake") }.configureEach {
+        dependsOn("buildDependencies")
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation 'com.android.support.constraint:constraint-layout:2.0.4'
+    implementation 'com.android.support:recyclerview-v7:28.0.0'
+}

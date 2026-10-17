@@ -1,0 +1,254 @@
+// Copyright (C) 2005 - 2026 Settlers Freaks (sf-team at siedler25.org)
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include "world/MapSerializer.h"
+#include "CatapultStone.h"
+#include "Game.h"
+#include "SerializedGameData.h"
+#include "buildings/noBuildingSite.h"
+#include "helpers/IdRange.h"
+#include "helpers/Range.h"
+#include "lua/GameDataLoader.h"
+#include "world/GameWorldBase.h"
+#include "s25util/warningSuppression.h"
+#include <boost/container/static_vector.hpp>
+#include <mygettext/mygettext.h>
+
+void MapSerializer::Serialize(const GameWorldBase& world, SerializedGameData& sgd)
+{
+    // Headinformationen
+    helpers::pushPoint(sgd, world.GetSize());
+    sgd.PushString(world.GetDescription().get(world.GetLandscapeType()).name);
+
+    sgd.PushUnsignedInt(GameObject::GetObjIDCounter());
+
+    // Alle Weltpunkte serialisieren
+    const unsigned numPlayers = world.GetNumPlayers();
+    for(const auto& node : world.nodes)
+    {
+        node.Serialize(sgd, numPlayers, world.GetDescription());
+    }
+
+    // Katapultsteine serialisieren
+    sgd.PushObjectContainer(world.catapult_stones, true);
+    // Meeresinformationen serialisieren
+    sgd.PushUnsignedInt(world.seas.size());
+    for(const auto& sea : world.seas)
+    {
+        sgd.PushUnsignedInt(sea.nodes_count);
+    }
+    // Hafenpositionen serialisieren
+    sgd.PushUnsignedInt(world.harborData.size());
+    for(const auto& curHarborPos : world.harborData)
+    {
+        helpers::pushPoint(sgd, curHarborPos.pos);
+        helpers::pushContainer(sgd, curHarborPos.seaIds);
+        for(const auto& curNeighbors : curHarborPos.neighbors)
+        {
+            sgd.PushUnsignedInt(curNeighbors.size());
+
+            for(const auto& c : curNeighbors)
+            {
+                sgd.PushUnsignedInt(c.id.value());
+                sgd.PushUnsignedInt(c.sea.value());
+                sgd.PushUnsignedInt(c.distance);
+            }
+        }
+    }
+
+    sgd.PushObjectContainer(world.harbor_building_sites_from_sea, true);
+
+    if(!world.HasLua())
+        sgd.PushLongString("");
+    else
+    {
+        sgd.PushLongString(world.GetLua().getScript());
+        Serializer luaSaveState;
+        try
+        {
+            if(!world.GetLua().Serialize(luaSaveState))
+                throw SerializedGameData::Error(_("Failed to save lua state!"));
+        } catch(const std::exception& e)
+        {
+            throw SerializedGameData::Error(std::string(_("Failed to save lua state!")) + _("Error: ") + e.what());
+        }
+        sgd.PushUnsignedInt(0xC0DEBA5E); // Start Lua identifier
+        sgd.PushUnsignedInt(luaSaveState.GetLength());
+        sgd.PushRawData(luaSaveState.GetData(), luaSaveState.GetLength());
+        sgd.PushUnsignedInt(0xC001C0DE); // End Lua identifier
+    }
+}
+
+void MapSerializer::Deserialize(GameWorldBase& world, SerializedGameData& sgd, Game& game,
+                                ILocalGameState& localgameState)
+{
+    // Initialisierungen
+    GameDataLoader gdLoader(world.GetDescriptionWriteable());
+    if(!gdLoader.Load())
+        throw SerializedGameData::Error(_("Failed to load game data!"));
+
+    // Headinformationen
+    const auto size = helpers::popPoint<MapExtent>(sgd);
+    DescIdx<LandscapeDesc> lt;
+    if(sgd.GetGameDataVersion() < 3)
+    {
+        uint8_t gfxSet = sgd.PopUnsignedChar();
+        lt = world.GetDescription().landscapes.find([gfxSet](const LandscapeDesc& l) { return l.s2Id == gfxSet; });
+    } else
+    {
+        std::string sLandscape = sgd.PopString();
+        lt = world.GetDescription().landscapes.getIndex(sLandscape);
+        if(!lt)
+            throw SerializedGameData::Error(std::string("Invalid landscape: ") + sLandscape);
+    }
+    world.Init(size, lt);
+    GameObject::ResetCounters(sgd.PopUnsignedInt());
+
+    std::vector<DescIdx<TerrainDesc>> landscapeTerrains;
+    if(sgd.GetGameDataVersion() < 3)
+    {
+        // Assumes the order of the terrain in the description file is the same as in the prior RTTR versions
+        landscapeTerrains =
+          world.GetDescription().terrain.findAll([lt](const TerrainDesc& t) { return t.landscape == lt; });
+    }
+    // Alle Weltpunkte
+    MapPoint curPos(0, 0);
+    const unsigned numPlayers = world.GetNumPlayers();
+    for(auto& node : world.nodes)
+    {
+        node.Deserialize(sgd, numPlayers, world.GetDescription(), landscapeTerrains);
+        curPos.x++;
+        if(curPos.x >= world.GetWidth())
+        {
+            curPos.x = 0;
+            curPos.y++;
+        }
+    }
+
+    sgd.PopObjectContainer(world.catapult_stones, GO_Type::Catapultstone);
+
+    world.seas.resize(sgd.PopUnsignedInt());
+    for(auto& sea : world.seas)
+        sea.nodes_count = sgd.PopUnsignedInt();
+
+    // Deserialize harbor data
+    const unsigned numHarborPositions = sgd.PopUnsignedInt();
+    world.harborData.clear();
+    world.harborData.reserve(numHarborPositions);
+    for(const auto i : helpers::range<unsigned>(numHarborPositions))
+    {
+        RTTR_UNUSED(i);
+        world.harborData.emplace_back(sgd.PopMapPoint());
+        auto& curHarborPos = world.harborData.back();
+        helpers::popContainer(sgd, curHarborPos.seaIds);
+        for(auto& neighbor : curHarborPos.neighbors)
+        {
+            const unsigned numNeighbors = sgd.PopUnsignedInt();
+            neighbor.reserve(numNeighbors);
+            for(const auto j : helpers::range<unsigned>(numNeighbors))
+            {
+                RTTR_UNUSED(j);
+                const auto id = HarborId(sgd.PopUnsignedInt());
+                SeaId sea;
+                if(sgd.GetGameDataVersion() >= 15)
+                    sea = SeaId(sgd.PopUnsignedInt());
+                const auto distance = sgd.PopUnsignedInt();
+                neighbor.emplace_back(id, sea, distance);
+            }
+        }
+    }
+    if(sgd.GetGameDataVersion() < 13 && !world.harborData.empty())
+    {
+        // Workaround for save games without increased game data version after introducing the change
+        if(!world.harborData.front().pos.isValid())
+            world.harborData.erase(world.harborData.begin());
+    }
+    if(sgd.GetGameDataVersion() < 15)
+    {
+        const auto getSeas = [&world](const HarborId& hbId) {
+            boost::container::static_vector<SeaId, helpers::NumEnumValues_v<Direction>> seas;
+            for(const auto sea : world.harborData[hbId].seaIds)
+            {
+                if(sea)
+                    seas.push_back(sea);
+            }
+            return seas;
+        };
+        // Determine seas for neighbors
+        for(const auto startHbId : helpers::idRange<HarborId>(world.GetNumHarborPoints()))
+        {
+            const auto mySeas = getSeas(startHbId);
+            for(auto& neighborsPerDir : world.harborData[startHbId].neighbors)
+            {
+                for(auto& neighbor : neighborsPerDir)
+                {
+                    // Easy case: Either harbor is only at a single sea, so that must be the one
+                    if(mySeas.size() == 1u)
+                    {
+                        neighbor.sea = mySeas.front();
+                        continue;
+                    }
+                    const auto otherSeas = getSeas(neighbor.id);
+                    if(otherSeas.size() == 1u)
+                    {
+                        neighbor.sea = otherSeas.front();
+                        continue;
+                    }
+                    // Find the sea where this distance matches
+                    for(const auto sea : mySeas)
+                    {
+                        if(!helpers::contains(otherSeas, sea))
+                            continue;
+                        unsigned len = 0;
+                        const auto startPoint = world.GetCoastalPoint(startHbId, sea);
+                        const auto nbPoint = world.GetCoastalPoint(neighbor.id, sea);
+                        if(neighbor.distance == 0 && startPoint == nbPoint)
+                        {
+                            neighbor.sea = sea;
+                            break;
+                        }
+                        if(world.FindShipPath(world.GetCoastalPoint(startHbId, sea),
+                                              world.GetCoastalPoint(neighbor.id, sea), neighbor.distance, nullptr, &len)
+                           && len == neighbor.distance)
+                        {
+                            neighbor.sea = sea;
+                            break;
+                        }
+                    }
+                    RTTR_Assert(neighbor.sea);
+                }
+            }
+        }
+    }
+
+    sgd.PopObjectContainer(world.harbor_building_sites_from_sea, GO_Type::Buildingsite);
+
+    const std::string luaScript = sgd.PopLongString();
+    if(!luaScript.empty())
+    {
+        if(sgd.PopUnsignedInt() != 0xC0DEBA5E)
+            throw SerializedGameData::Error(_("Invalid id for lua data"));
+        // If there is a script, there is also save data. Store reference to that
+        const auto luaSaveSize = sgd.PopUnsignedInt();
+        Serializer luaSaveState(sgd.PopAndDiscard(luaSaveSize), luaSaveSize);
+        if(sgd.PopUnsignedInt() != 0xC001C0DE)
+            throw SerializedGameData::Error(_("Invalid end-id for lua data"));
+
+        // Now init and load lua
+        auto lua = std::make_unique<LuaInterfaceGame>(game, localgameState);
+        if(!lua->loadScriptString(luaScript))
+            throw SerializedGameData::Error(_("Lua script failed to load."));
+        if(!lua->CheckScriptVersion())
+            throw SerializedGameData::Error(_("Wrong version for lua script."));
+        try
+        {
+            if(!lua->Deserialize(luaSaveState))
+                throw SerializedGameData::Error(_("Lua load callback returned failure!"));
+        } catch(const std::exception& e)
+        {
+            throw SerializedGameData::Error(std::string(_("Failed to load lua state!")) + _("Error: ") + e.what());
+        }
+        game.SetLua(std::move(lua));
+    }
+}
